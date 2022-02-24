@@ -1,2 +1,2 @@
-# dc-microservice
-Core microservice library used by DeviceChain microservice implementations.
+# DeviceChain Core Microservice Library
+Provides the base microservice library used by all DeviceChain microservice implementations.
