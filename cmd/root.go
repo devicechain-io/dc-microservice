@@ -1,28 +1,50 @@
+/*
+Copyright © 2022 SiteWhere LLC - All Rights Reserved
+Unauthorized copying of this file, via any medium is strictly prohibited.
+Proprietary and confidential.
+*/
+
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"os"
 
+	"github.com/devicechain-io/dc-microservice/core"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var cfgFile string
+var ms *core.Microservice
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "devicechain",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "DeviceChain Microservice",
+	Long:  `Starts the DeviceChain microservice`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return createAndStartMicroservice()
+	},
+}
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+// Create microservice and initialize/start it.
+func createAndStartMicroservice() error {
+	ms = core.NewMicroservice()
+	err := ms.Initialize(context.Background())
+	if err != nil {
+		log.Println("unable to initialize microservice", err)
+		return err
+	}
+	err = ms.Start(context.Background())
+	if err != nil {
+		log.Println("unable to start microservice", err)
+		return err
+	}
+	ms.WaitForShutdown()
+	return nil
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
