@@ -14,6 +14,7 @@ import (
 type LifecycleState int64
 
 // Enumeration of lifecycle states
+//go:generate stringer -type=LifecycleState
 const (
 	Uninitialized LifecycleState = iota
 	Initializing
@@ -25,30 +26,6 @@ const (
 	Terminating
 	Terminated
 )
-
-func (s LifecycleState) String() string {
-	switch s {
-	case Uninitialized:
-		return "Uninitialized"
-	case Initializing:
-		return "Initializing"
-	case Initialized:
-		return "Initialized"
-	case Starting:
-		return "Starting"
-	case Started:
-		return "Started"
-	case Stopping:
-		return "Stopping"
-	case Stopped:
-		return "Stopped"
-	case Terminating:
-		return "Terminating"
-	case Terminated:
-		return "Terminated"
-	}
-	return "Unknown"
-}
 
 // Common lifecycle concept for components
 type LifecycleComponent interface {

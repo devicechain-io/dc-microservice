@@ -8,12 +8,14 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // Primary microservice implementation
@@ -40,7 +42,7 @@ func NewMicroservice() *Microservice {
 	go func() {
 		sig := <-ms.shutdown
 		fmt.Println()
-		log.Printf("Received signal '%v'. Shutting down gracefully...", sig)
+		log.Warn().Msgf("Received signal '%v'. Shutting down gracefully...", sig)
 		ms.ShutDownNow()
 	}()
 
@@ -51,13 +53,13 @@ func NewMicroservice() *Microservice {
 func (ms *Microservice) ShutDownNow() {
 	err := ms.Stop(context.Background())
 	if err != nil {
-		log.Println("unable to stop microservice", err)
+		log.Error().Err(err).Msg("unable to stop microservice")
 		ms.done <- true
 		return
 	}
 	err = ms.Terminate(context.Background())
 	if err != nil {
-		log.Fatal("unable to terminate microservice", err)
+		log.Error().Err(err).Msg("unable to terminate microservice")
 		ms.done <- true
 		return
 	}
@@ -77,7 +79,7 @@ func (ms *Microservice) Initialize(ctx context.Context) error {
 
 // Initialize microservice (as called by lifecycle manager)
 func (ms *Microservice) lifecycleInitialize(ctx context.Context) error {
-	log.Println("Microservice initialized!")
+	log.Info().Msg("Microservice initialized.")
 	return nil
 }
 
@@ -88,7 +90,7 @@ func (ms *Microservice) Start(ctx context.Context) error {
 
 // Start microservice (as called by lifecycle manager)
 func (ms *Microservice) lifecycleStart(ctx context.Context) error {
-	log.Println("Microservice started!")
+	log.Info().Msg("Microservice started.")
 	return nil
 }
 
@@ -99,7 +101,7 @@ func (ms *Microservice) Stop(ctx context.Context) error {
 
 // Stop microservice (as called by lifecycle manager)
 func (ms *Microservice) lifecycleStop(ctx context.Context) error {
-	log.Println("Microservice stopped!")
+	log.Info().Msg("Microservice stopped.")
 	return nil
 }
 
@@ -110,6 +112,8 @@ func (ms *Microservice) Terminate(ctx context.Context) error {
 
 // Stop microservice (as called by lifecycle manager)
 func (ms *Microservice) lifecycleTerminate(ctx context.Context) error {
-	log.Println("Microservice terminated!")
+	log.Info().Msg("Microservice terminated.")
+	err := errors.New("this is a test error")
+	log.Error().Err(err).Msg("outter error description!")
 	return nil
 }

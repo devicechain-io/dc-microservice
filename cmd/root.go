@@ -9,10 +9,10 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/devicechain-io/dc-microservice/core"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -32,15 +32,16 @@ var rootCmd = &cobra.Command{
 
 // Create microservice and initialize/start it.
 func createAndStartMicroservice() error {
+	log.Info().Msg("Creating new microservice and running intialization/startup...")
 	ms = core.NewMicroservice()
 	err := ms.Initialize(context.Background())
 	if err != nil {
-		log.Println("unable to initialize microservice", err)
+		log.Error().Err(err).Msg("unable to initialize microservice")
 		return err
 	}
 	err = ms.Start(context.Background())
 	if err != nil {
-		log.Println("unable to start microservice", err)
+		log.Error().Err(err).Msg("unable to start microservice")
 		return err
 	}
 	ms.WaitForShutdown()
