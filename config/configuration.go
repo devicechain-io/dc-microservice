@@ -4,7 +4,9 @@ Unauthorized copying of this file, via any medium is strictly prohibited.
 Proprietary and confidential.
 */
 
-package core
+package config
+
+import "fmt"
 
 // Redis configuration parameters
 type RedisConfiguration struct {
@@ -72,7 +74,26 @@ type InstanceConfiguration struct {
 // Information required to create a resource file
 type ConfigurationResource struct {
 	Name    string
-	Content string
+	Content []byte
+}
+
+// Get instance configuration CRs that should be created in tooling
+func GetInstanceConfigurationResources() ([]ConfigurationResource, error) {
+	resources := make([]ConfigurationResource, 0)
+
+	name := "dcic-default"
+	config := NewDefaultInstanceConfiguration()
+	content, err := GenerateInstanceConfig(name, config)
+	if err != nil {
+		return nil, err
+	}
+	dcidefault := ConfigurationResource{
+		Name:    fmt.Sprintf("%s_%s", "core.devicechain.io", name),
+		Content: content,
+	}
+
+	resources = append(resources, dcidefault)
+	return resources, nil
 }
 
 // Creates the default instance configuration

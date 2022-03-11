@@ -4,7 +4,7 @@ Unauthorized copying of this file, via any medium is strictly prohibited.
 Proprietary and confidential.
 */
 
-package generator
+package config
 
 import (
 	"bytes"
