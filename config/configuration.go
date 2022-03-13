@@ -77,8 +77,12 @@ type ConfigurationResource struct {
 	Content []byte
 }
 
+type ConfigurationResourceProvider interface {
+	GetConfigurationResources() ([]ConfigurationResource, error)
+}
+
 // Get instance configuration CRs that should be created in tooling
-func GetInstanceConfigurationResources() ([]ConfigurationResource, error) {
+func GetConfigurationResources() ([]ConfigurationResource, error) {
 	resources := make([]ConfigurationResource, 0)
 
 	name := "dcic-default"

@@ -41,3 +41,32 @@ func GenerateInstanceConfig(id string, content interface{}) ([]byte, error) {
 	}
 	return buff.Bytes(), nil
 }
+
+// Generate a microservice configuration custom resource
+func GenerateMicroserviceConfig(id string, functionalArea string, image string, content interface{}) ([]byte, error) {
+	raw, err := json.Marshal(content)
+	if err != nil {
+		return nil, err
+	}
+
+	config := &v1beta1.MicroserviceConfiguration{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "MicroserviceConfiguration",
+			APIVersion: v1beta1.GroupVersion.Group + "/" + v1beta1.GroupVersion.Version,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: id,
+		},
+		Spec: v1beta1.MicroserviceConfigurationSpec{
+			FunctionalArea: functionalArea,
+			Image:          image,
+			Configuration:  v1beta1.EntityConfiguration{RawMessage: raw},
+		}}
+	y := printers.YAMLPrinter{}
+	var buff = new(bytes.Buffer)
+	err = y.PrintObj(config, buff)
+	if err != nil {
+		return nil, err
+	}
+	return buff.Bytes(), nil
+}
