@@ -34,8 +34,3 @@ func banner() {
 
 `))
 }
-
-type Stuff struct {
-	Name string
-	Last string
-}
