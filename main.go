@@ -7,30 +7,59 @@ Proprietary and confidential.
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
-	"time"
 
-	"github.com/devicechain-io/dc-microservice/cmd"
-	"github.com/fatih/color"
-	"github.com/rs/zerolog"
+	"github.com/devicechain-io/dc-microservice/core"
 	"github.com/rs/zerolog/log"
 )
 
+// Create and run a microservice
 func main() {
-	banner()
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
-	cmd.Execute()
-}
-
-// Prints a banner to the console
-func banner() {
-	fmt.Println(color.HiGreenString(`
-    ____            _           ________          _     
-   / __ \___ _   __(_)_______  / ____/ /_  ____ _(_)___ 
-  / / / / _ \ | / / / ___/ _ \/ /   / __ \/ __  / / __ \
- / /_/ /  __/ |/ / / /__/  __/ /___/ / / / /_/ / / / / /
-/_____/\___/|___/_/\___/\___/\____/_/ /_/\__,_/_/_/ /_/ 
-
-`))
+	os.Setenv(core.ENV_INSTANCE_ID, "dc1")
+	os.Setenv(core.ENV_TENANTMICROSERVICE_ID, "tms-tenant1-devicemanagement")
+	callbacks := core.LifecycleCallbacks{
+		Initializer: core.LifecycleCallback{
+			Preprocess: func(ctx context.Context) error {
+				log.Info().Msg("Microservice called pre-initialize callback.")
+				return nil
+			},
+			Postprocess: func(ctx context.Context) error {
+				log.Info().Msg("Microservice called post-initialize callback.")
+				return nil
+			},
+		},
+		Starter: core.LifecycleCallback{
+			Preprocess: func(ctx context.Context) error {
+				log.Info().Msg("Microservice called pre-start callback.")
+				return nil
+			},
+			Postprocess: func(ctx context.Context) error {
+				log.Info().Msg("Microservice called post-start callback.")
+				return nil
+			},
+		},
+		Stopper: core.LifecycleCallback{
+			Preprocess: func(ctx context.Context) error {
+				log.Info().Msg("Microservice called pre-stop callback.")
+				return nil
+			},
+			Postprocess: func(ctx context.Context) error {
+				log.Info().Msg("Microservice called post-stop callback.")
+				return nil
+			},
+		},
+		Terminator: core.LifecycleCallback{
+			Preprocess: func(ctx context.Context) error {
+				log.Info().Msg("Microservice called pre-terminate callback.")
+				return nil
+			},
+			Postprocess: func(ctx context.Context) error {
+				log.Info().Msg("Microservice called post-terminate callback.")
+				return nil
+			},
+		},
+	}
+	ms := core.NewMicroservice("test-service", callbacks)
+	ms.Run()
 }

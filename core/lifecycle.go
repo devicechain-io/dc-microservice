@@ -9,6 +9,8 @@ package core
 import (
 	"context"
 	"errors"
+
+	"github.com/rs/zerolog/log"
 )
 
 type LifecycleState int64
@@ -42,14 +44,52 @@ type LifecycleComponent interface {
 	lifecycleTerminate(context.Context) error
 }
 
-type LifecycleManager struct {
-	Component LifecycleComponent
-	State     LifecycleState
+// Callback used to add behavior to a lifecycle component.
+type LifecycleCallback struct {
+	// Processing that occurs before component lifecycle step.
+	Preprocess func(context.Context) error
+
+	// Processing that occurs before component lifecycle step.
+	Postprocess func(context.Context) error
 }
 
-func NewLifecycleManager(component LifecycleComponent) *LifecycleManager {
-	mgr := &LifecycleManager{Component: component, State: Uninitialized}
+// Provides a lifecycle callback with no-op implementations
+func NewNoOpLifecycleCallback() LifecycleCallback {
+	return LifecycleCallback{
+		Preprocess: func(ctx context.Context) error {
+			return nil
+		},
+		Postprocess: func(ctx context.Context) error {
+			return nil
+		},
+	}
+}
+
+// Lifecycle callbacks that may be triggered by lifecycle manager.
+type LifecycleCallbacks struct {
+	Initializer LifecycleCallback
+	Starter     LifecycleCallback
+	Stopper     LifecycleCallback
+	Terminator  LifecycleCallback
+}
+
+type LifecycleManager struct {
+	Name       string
+	Component  LifecycleComponent
+	Callabacks LifecycleCallbacks
+	State      LifecycleState
+}
+
+// Create a new lifecycle manager
+func NewLifecycleManager(name string, component LifecycleComponent, callbacks LifecycleCallbacks) LifecycleManager {
+	mgr := LifecycleManager{Name: name, Component: component, Callabacks: callbacks, State: Uninitialized}
 	return mgr
+}
+
+// Set lifecycle state on manager and print the updated state
+func (mgr *LifecycleManager) SetLifecycleState(state LifecycleState) {
+	log.Info().Str("component", mgr.Name).Str("state", state.String()).Msg("Updating lifecycle state")
+	mgr.State = state
 }
 
 // Handle component initialization
@@ -58,13 +98,30 @@ func (mgr *LifecycleManager) initialize(ctx context.Context) error {
 		return errors.New("attempting to initialize component that is already initialized")
 	}
 	prev := mgr.State
-	mgr.State = Initializing
-	err := mgr.Component.lifecycleInitialize(ctx)
+	mgr.SetLifecycleState(Initializing)
+
+	// Run callbacks that precede initialization
+	err := mgr.Callabacks.Initializer.Preprocess(ctx)
 	if err != nil {
-		mgr.State = prev
+		mgr.SetLifecycleState(prev)
 		return err
 	}
-	mgr.State = Initialized
+
+	// Run primary initialization functionality
+	err = mgr.Component.lifecycleInitialize(ctx)
+	if err != nil {
+		mgr.SetLifecycleState(prev)
+		return err
+	}
+
+	// Run callbacks that follow initialization
+	err = mgr.Callabacks.Initializer.Postprocess(ctx)
+	if err != nil {
+		mgr.SetLifecycleState(prev)
+		return err
+	}
+
+	mgr.SetLifecycleState(Initialized)
 	return nil
 }
 
@@ -89,13 +146,30 @@ func (mgr *LifecycleManager) start(ctx context.Context) error {
 		return errors.New("attempting to start a component that is terminated")
 	}
 	prev := mgr.State
-	mgr.State = Starting
-	err := mgr.Component.lifecycleStart(ctx)
+	mgr.SetLifecycleState(Starting)
+
+	// Run callbacks that precede startup
+	err := mgr.Callabacks.Starter.Preprocess(ctx)
 	if err != nil {
-		mgr.State = prev
+		mgr.SetLifecycleState(prev)
 		return err
 	}
-	mgr.State = Started
+
+	// Run primary startup functionality
+	err = mgr.Component.lifecycleStart(ctx)
+	if err != nil {
+		mgr.SetLifecycleState(prev)
+		return err
+	}
+
+	// Run callbacks that follow startup
+	err = mgr.Callabacks.Starter.Postprocess(ctx)
+	if err != nil {
+		mgr.SetLifecycleState(prev)
+		return err
+	}
+
+	mgr.SetLifecycleState(Started)
 	return nil
 }
 
@@ -120,13 +194,30 @@ func (mgr *LifecycleManager) stop(ctx context.Context) error {
 		return errors.New("attempting to stop a component that is terminated")
 	}
 	prev := mgr.State
-	mgr.State = Stopping
-	err := mgr.Component.lifecycleStop(ctx)
+	mgr.SetLifecycleState(Stopping)
+
+	// Run callbacks that precede shutdown
+	err := mgr.Callabacks.Stopper.Preprocess(ctx)
 	if err != nil {
-		mgr.State = prev
+		mgr.SetLifecycleState(prev)
 		return err
 	}
-	mgr.State = Stopped
+
+	// Run primary shutdown functionality
+	err = mgr.Component.lifecycleStop(ctx)
+	if err != nil {
+		mgr.SetLifecycleState(prev)
+		return err
+	}
+
+	// Run callbacks that follow shutdown
+	err = mgr.Callabacks.Stopper.Postprocess(ctx)
+	if err != nil {
+		mgr.SetLifecycleState(prev)
+		return err
+	}
+
+	mgr.SetLifecycleState(Stopped)
 	return nil
 }
 
@@ -139,12 +230,29 @@ func (mgr *LifecycleManager) terminate(ctx context.Context) error {
 		return errors.New("attempting to terminate component that is not stopped")
 	}
 	prev := mgr.State
-	mgr.State = Terminating
-	err := mgr.Component.lifecycleTerminate(ctx)
+	mgr.SetLifecycleState(Terminating)
+
+	// Run callbacks that precede terminate
+	err := mgr.Callabacks.Terminator.Preprocess(ctx)
 	if err != nil {
-		mgr.State = prev
+		mgr.SetLifecycleState(prev)
 		return err
 	}
-	mgr.State = Terminated
+
+	// Run primary terminate functionality
+	err = mgr.Component.lifecycleTerminate(ctx)
+	if err != nil {
+		mgr.SetLifecycleState(prev)
+		return err
+	}
+
+	// Run callbacks that follow terminate
+	err = mgr.Callabacks.Terminator.Postprocess(ctx)
+	if err != nil {
+		mgr.SetLifecycleState(prev)
+		return err
+	}
+
+	mgr.SetLifecycleState(Terminated)
 	return nil
 }

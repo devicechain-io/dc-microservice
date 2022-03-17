@@ -1,4 +1,4 @@
 .PHONY: build
 
 build:
-		go build -o build/microservice .
+		go build -o build/service .

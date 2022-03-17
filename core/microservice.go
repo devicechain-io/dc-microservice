@@ -8,13 +8,15 @@ package core
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/devicechain-io/dc-k8s/api/v1beta1"
+	"github.com/fatih/color"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -22,16 +24,20 @@ import (
 type Microservice struct {
 	StartTime time.Time
 
-	lifecycle *LifecycleManager
+	TenantMicroservice v1beta1.TenantMicroservice
+
+	lifecycle LifecycleManager
 	shutdown  chan os.Signal
 	done      chan bool
 }
 
 // Create a new microservice instance
-func NewMicroservice() *Microservice {
+func NewMicroservice(name string, callbacks LifecycleCallbacks) *Microservice {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
+
 	ms := &Microservice{}
 	ms.StartTime = time.Now()
-	ms.lifecycle = NewLifecycleManager(ms)
+	ms.lifecycle = NewLifecycleManager(name, ms, callbacks)
 	ms.done = make(chan bool, 1)
 	ms.shutdown = make(chan os.Signal, 1)
 
@@ -49,17 +55,60 @@ func NewMicroservice() *Microservice {
 	return ms
 }
 
+// Prints a banner to the console
+func banner() {
+	fmt.Println(color.HiGreenString(`
+    ____            _           ________          _     
+   / __ \___ _   __(_)_______  / ____/ /_  ____ _(_)___ 
+  / / / / _ \ | / / / ___/ _ \/ /   / __ \/ __  / / __ \
+ / /_/ /  __/ |/ / / /__/  __/ /___/ / / / /_/ / / / / /
+/_____/\___/|___/_/\___/\___/\____/_/ /_/\__,_/_/_/ /_/ 
+
+`))
+}
+
+// Create microservice and initialize/start it.
+func (ms *Microservice) Run() error {
+	banner()
+	log.Info().Msg("Creating new microservice and running intialization/startup...")
+
+	go func() {
+		err := ms.initializeAndStart()
+		if err != nil {
+			ms.done <- true
+		}
+	}()
+
+	ms.waitForShutdown()
+	return nil
+}
+
+// Issue initialize and start commands to microservice
+func (ms *Microservice) initializeAndStart() error {
+	err := ms.initialize(context.Background())
+	if err != nil {
+		log.Error().Err(err).Msg("Unable to initialize microservice")
+		return err
+	}
+	err = ms.start(context.Background())
+	if err != nil {
+		log.Error().Err(err).Msg("Unable to start microservice")
+		return err
+	}
+	return nil
+}
+
 // Issue stop and terminate commands to microservice
 func (ms *Microservice) ShutDownNow() {
-	err := ms.Stop(context.Background())
+	err := ms.stop(context.Background())
 	if err != nil {
-		log.Error().Err(err).Msg("unable to stop microservice")
+		log.Error().Err(err).Msg("Unable to stop microservice")
 		ms.done <- true
 		return
 	}
-	err = ms.Terminate(context.Background())
+	err = ms.terminate(context.Background())
 	if err != nil {
-		log.Error().Err(err).Msg("unable to terminate microservice")
+		log.Error().Err(err).Msg("Unable to terminate microservice")
 		ms.done <- true
 		return
 	}
@@ -68,23 +117,34 @@ func (ms *Microservice) ShutDownNow() {
 }
 
 // Wait for microservice to shut down
-func (ms *Microservice) WaitForShutdown() {
+func (ms *Microservice) waitForShutdown() {
 	<-ms.done
 }
 
 // Initialize microservice
-func (ms *Microservice) Initialize(ctx context.Context) error {
+func (ms *Microservice) initialize(ctx context.Context) error {
 	return ms.lifecycle.initialize(ctx)
+}
+
+// Initialize tenantmicroservice resource from k8s
+func (ms *Microservice) initTenantMicroservice() error {
+	tm, err := ms.getTenantMicroservice()
+	if err != nil {
+		return err
+	}
+	log.Info().Str("tenant", tm.Spec.TenantId).Str("microservice", tm.Spec.MicroserviceId).Msg("Found tenant microservice")
+	ms.TenantMicroservice = *tm
+	return nil
 }
 
 // Initialize microservice (as called by lifecycle manager)
 func (ms *Microservice) lifecycleInitialize(ctx context.Context) error {
-	log.Info().Msg("Microservice initialized.")
-	return nil
+	err := ms.initTenantMicroservice()
+	return err
 }
 
 // Start microservice
-func (ms *Microservice) Start(ctx context.Context) error {
+func (ms *Microservice) start(ctx context.Context) error {
 	return ms.lifecycle.start(ctx)
 }
 
@@ -95,7 +155,7 @@ func (ms *Microservice) lifecycleStart(ctx context.Context) error {
 }
 
 // Stop microservice
-func (ms *Microservice) Stop(ctx context.Context) error {
+func (ms *Microservice) stop(ctx context.Context) error {
 	return ms.lifecycle.stop(ctx)
 }
 
@@ -106,14 +166,12 @@ func (ms *Microservice) lifecycleStop(ctx context.Context) error {
 }
 
 // Stop microservice
-func (ms *Microservice) Terminate(ctx context.Context) error {
+func (ms *Microservice) terminate(ctx context.Context) error {
 	return ms.lifecycle.terminate(ctx)
 }
 
 // Stop microservice (as called by lifecycle manager)
 func (ms *Microservice) lifecycleTerminate(ctx context.Context) error {
 	log.Info().Msg("Microservice terminated.")
-	err := errors.New("this is a test error")
-	log.Error().Err(err).Msg("outter error description!")
 	return nil
 }
