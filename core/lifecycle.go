@@ -74,15 +74,15 @@ type LifecycleCallbacks struct {
 }
 
 type LifecycleManager struct {
-	Name       string
-	Component  LifecycleComponent
-	Callabacks LifecycleCallbacks
-	State      LifecycleState
+	Name      string
+	Component LifecycleComponent
+	Callbacks LifecycleCallbacks
+	State     LifecycleState
 }
 
 // Create a new lifecycle manager
 func NewLifecycleManager(name string, component LifecycleComponent, callbacks LifecycleCallbacks) LifecycleManager {
-	mgr := LifecycleManager{Name: name, Component: component, Callabacks: callbacks, State: Uninitialized}
+	mgr := LifecycleManager{Name: name, Component: component, Callbacks: callbacks, State: Uninitialized}
 	return mgr
 }
 
@@ -101,7 +101,7 @@ func (mgr *LifecycleManager) initialize(ctx context.Context) error {
 	mgr.SetLifecycleState(Initializing)
 
 	// Run callbacks that precede initialization
-	err := mgr.Callabacks.Initializer.Preprocess(ctx)
+	err := mgr.Callbacks.Initializer.Preprocess(ctx)
 	if err != nil {
 		mgr.SetLifecycleState(prev)
 		return err
@@ -115,7 +115,7 @@ func (mgr *LifecycleManager) initialize(ctx context.Context) error {
 	}
 
 	// Run callbacks that follow initialization
-	err = mgr.Callabacks.Initializer.Postprocess(ctx)
+	err = mgr.Callbacks.Initializer.Postprocess(ctx)
 	if err != nil {
 		mgr.SetLifecycleState(prev)
 		return err
@@ -149,7 +149,7 @@ func (mgr *LifecycleManager) start(ctx context.Context) error {
 	mgr.SetLifecycleState(Starting)
 
 	// Run callbacks that precede startup
-	err := mgr.Callabacks.Starter.Preprocess(ctx)
+	err := mgr.Callbacks.Starter.Preprocess(ctx)
 	if err != nil {
 		mgr.SetLifecycleState(prev)
 		return err
@@ -163,7 +163,7 @@ func (mgr *LifecycleManager) start(ctx context.Context) error {
 	}
 
 	// Run callbacks that follow startup
-	err = mgr.Callabacks.Starter.Postprocess(ctx)
+	err = mgr.Callbacks.Starter.Postprocess(ctx)
 	if err != nil {
 		mgr.SetLifecycleState(prev)
 		return err
@@ -197,7 +197,7 @@ func (mgr *LifecycleManager) stop(ctx context.Context) error {
 	mgr.SetLifecycleState(Stopping)
 
 	// Run callbacks that precede shutdown
-	err := mgr.Callabacks.Stopper.Preprocess(ctx)
+	err := mgr.Callbacks.Stopper.Preprocess(ctx)
 	if err != nil {
 		mgr.SetLifecycleState(prev)
 		return err
@@ -211,7 +211,7 @@ func (mgr *LifecycleManager) stop(ctx context.Context) error {
 	}
 
 	// Run callbacks that follow shutdown
-	err = mgr.Callabacks.Stopper.Postprocess(ctx)
+	err = mgr.Callbacks.Stopper.Postprocess(ctx)
 	if err != nil {
 		mgr.SetLifecycleState(prev)
 		return err
@@ -233,7 +233,7 @@ func (mgr *LifecycleManager) terminate(ctx context.Context) error {
 	mgr.SetLifecycleState(Terminating)
 
 	// Run callbacks that precede terminate
-	err := mgr.Callabacks.Terminator.Preprocess(ctx)
+	err := mgr.Callbacks.Terminator.Preprocess(ctx)
 	if err != nil {
 		mgr.SetLifecycleState(prev)
 		return err
@@ -247,7 +247,7 @@ func (mgr *LifecycleManager) terminate(ctx context.Context) error {
 	}
 
 	// Run callbacks that follow terminate
-	err = mgr.Callabacks.Terminator.Postprocess(ctx)
+	err = mgr.Callbacks.Terminator.Postprocess(ctx)
 	if err != nil {
 		mgr.SetLifecycleState(prev)
 		return err
