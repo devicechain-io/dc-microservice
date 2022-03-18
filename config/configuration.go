@@ -6,8 +6,6 @@ Proprietary and confidential.
 
 package config
 
-import "fmt"
-
 // Redis configuration parameters
 type RedisConfiguration struct {
 	Hostname        string
@@ -69,35 +67,6 @@ type PersistenceConfiguration struct {
 type InstanceConfiguration struct {
 	Infrastructure InfrastructureConfiguration
 	Persistence    PersistenceConfiguration
-}
-
-// Information required to create a resource file
-type ConfigurationResource struct {
-	Name    string
-	Content []byte
-}
-
-type ConfigurationResourceProvider interface {
-	GetConfigurationResources() ([]ConfigurationResource, error)
-}
-
-// Get instance configuration CRs that should be created in tooling
-func GetConfigurationResources() ([]ConfigurationResource, error) {
-	resources := make([]ConfigurationResource, 0)
-
-	name := "dcic-default"
-	config := NewDefaultInstanceConfiguration()
-	content, err := GenerateInstanceConfig(name, config)
-	if err != nil {
-		return nil, err
-	}
-	dcidefault := ConfigurationResource{
-		Name:    fmt.Sprintf("%s_%s", "core.devicechain.io", name),
-		Content: content,
-	}
-
-	resources = append(resources, dcidefault)
-	return resources, nil
 }
 
 // Creates the default instance configuration

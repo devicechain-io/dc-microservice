@@ -14,7 +14,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/devicechain-io/dc-k8s/api/v1beta1"
 	"github.com/fatih/color"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -23,8 +22,6 @@ import (
 // Primary microservice implementation
 type Microservice struct {
 	StartTime time.Time
-
-	TenantMicroservice v1beta1.TenantMicroservice
 
 	lifecycle LifecycleManager
 	shutdown  chan os.Signal
@@ -128,12 +125,6 @@ func (ms *Microservice) initialize(ctx context.Context) error {
 
 // Initialize tenantmicroservice resource from k8s
 func (ms *Microservice) initTenantMicroservice() error {
-	tm, err := ms.getTenantMicroservice()
-	if err != nil {
-		return err
-	}
-	log.Info().Str("tenant", tm.Spec.TenantId).Str("microservice", tm.Spec.MicroserviceId).Msg("Found tenant microservice")
-	ms.TenantMicroservice = *tm
 	return nil
 }
 
