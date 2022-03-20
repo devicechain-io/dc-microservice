@@ -8,11 +8,14 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/devicechain-io/dc-microservice/config"
 
 	"github.com/fatih/color"
 	"github.com/rs/zerolog"
@@ -22,6 +25,8 @@ import (
 // Primary microservice implementation
 type Microservice struct {
 	StartTime time.Time
+
+	InstanceConfiguration config.InstanceConfiguration
 
 	lifecycle LifecycleManager
 	shutdown  chan os.Signal
@@ -123,14 +128,27 @@ func (ms *Microservice) initialize(ctx context.Context) error {
 	return ms.lifecycle.initialize(ctx)
 }
 
-// Initialize tenantmicroservice resource from k8s
-func (ms *Microservice) initTenantMicroservice() error {
+// Reloads instance configuration from configmap volume mapping
+func (ms *Microservice) ReloadInstanceConfiguration() error {
+	bytes, err := os.ReadFile("/etc/dc-config/instance")
+	if err != nil {
+		return err
+	}
+	config := &config.InstanceConfiguration{}
+	err = json.Unmarshal(bytes, config)
+	if err != nil {
+		return err
+	}
+	ms.InstanceConfiguration = *config
 	return nil
 }
 
 // Initialize microservice (as called by lifecycle manager)
 func (ms *Microservice) lifecycleInitialize(ctx context.Context) error {
-	err := ms.initTenantMicroservice()
+	err := ms.ReloadInstanceConfiguration()
+
+	log.Info().Str("redis", ms.InstanceConfiguration.Infrastructure.Redis.Hostname).Msg("Instance configuration")
+
 	return err
 }
 
