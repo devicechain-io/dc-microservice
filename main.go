@@ -8,7 +8,6 @@ package main
 
 import (
 	"context"
-	"os"
 
 	"github.com/devicechain-io/dc-microservice/core"
 	"github.com/rs/zerolog/log"
@@ -16,8 +15,6 @@ import (
 
 // Create and run a microservice
 func main() {
-	os.Setenv(core.ENV_INSTANCE_ID, "dc1")
-	os.Setenv(core.ENV_TENANTMICROSERVICE_ID, "tms-tenant1-devicemanagement")
 	callbacks := core.LifecycleCallbacks{
 		Initializer: core.LifecycleCallback{
 			Preprocess: func(ctx context.Context) error {
