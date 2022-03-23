@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/devicechain-io/dc-microservice/core"
 	gormigrate "github.com/go-gormigrate/gormigrate/v2"
@@ -48,7 +49,7 @@ func (rdb *RdbManager) Initialize(ctx context.Context) error {
 }
 
 // Compute non-database connection URL for querying/creating database.
-func (rdb *RdbManager) computeRootUrl() string {
+func (rdb *RdbManager) computeRootUrl(pgconfig *PostgresConfig) string {
 	config := rdb.Microservice.InstanceConfiguration.Persistence.Rdb
 	hostname := fmt.Sprintf("%v", config.Configuration["hostname"])
 	port := fmt.Sprintf("%v", config.Configuration["port"])
@@ -58,9 +59,9 @@ func (rdb *RdbManager) computeRootUrl() string {
 }
 
 // Assure that database is created before connecting to it.
-func (rdb *RdbManager) assurePostgresDatabase() error {
+func (rdb *RdbManager) assurePostgresDatabase(pgconfig *PostgresConfig) error {
 	log.Info().Str("database", rdb.Microservice.TenantId).Msg("Verifying that tenant database exists.")
-	url := rdb.computeRootUrl()
+	url := rdb.computeRootUrl(pgconfig)
 	conn, err := pgx.Connect(context.Background(), url)
 	if err != nil {
 		return err
@@ -98,19 +99,14 @@ func (rdb *RdbManager) assurePostgresDatabase() error {
 }
 
 // Compute non-database connection URL for querying/creating database.
-func (rdb *RdbManager) computeDatabaseUrl() string {
-	config := rdb.Microservice.InstanceConfiguration.Persistence.Rdb
-	hostname := fmt.Sprintf("%v", config.Configuration["hostname"])
-	port := fmt.Sprintf("%v", config.Configuration["port"])
-	username := fmt.Sprintf("%v", config.Configuration["username"])
-	password := fmt.Sprintf("%v", config.Configuration["password"])
-	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s", username, password, hostname, port, rdb.Microservice.TenantId)
+func (rdb *RdbManager) computeDatabaseUrl(pg *PostgresConfig) string {
+	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s", pg.Username, pg.Password, pg.Hostname, pg.Port, rdb.Microservice.TenantId)
 }
 
 // Assure that functional area schema is created before connecting to it.
-func (rdb *RdbManager) assurePostgresSchema() error {
+func (rdb *RdbManager) assurePostgresSchema(pgconfig *PostgresConfig) error {
 	log.Info().Str("schema", rdb.Microservice.FunctionalArea).Msg("Verifying that schema exists.")
-	url := rdb.computeDatabaseUrl()
+	url := rdb.computeDatabaseUrl(pgconfig)
 	conn, err := pgx.Connect(context.Background(), url)
 	if err != nil {
 		return err
@@ -141,23 +137,18 @@ func (rdb *RdbManager) assurePostgresSchema() error {
 		if err != nil {
 			return err
 		}
-		log.Info().Str("database", rdb.Microservice.FunctionalArea).Msg("Successfully created schema.")
+		log.Info().Str("schema", rdb.Microservice.FunctionalArea).Msg("Successfully created schema.")
 	}
 
 	return nil
 }
 
 // Compute DSN for connecting to database.
-func (rdb *RdbManager) computeDsn() string {
-	config := rdb.Microservice.InstanceConfiguration.Persistence.Rdb
-	hostname := fmt.Sprintf("%v", config.Configuration["hostname"])
-	port := fmt.Sprintf("%v", config.Configuration["port"])
-	username := fmt.Sprintf("%v", config.Configuration["username"])
-	password := fmt.Sprintf("%v", config.Configuration["password"])
-	dsn := fmt.Sprintf("user=%s password=%s host=%s dbname=%s port=%s sslmode=disable",
-		username, password, hostname, rdb.Microservice.TenantId, port)
-	log.Info().Str("username", username).Str("password", password).Str("hostname", hostname).
-		Str("port", port).Msg("Initializing database connectivity")
+func (rdb *RdbManager) computeDsn(pg *PostgresConfig) string {
+	dsn := fmt.Sprintf("user=%s password=%s host=%s dbname=%s port=%d sslmode=disable",
+		pg.Username, pg.Password, pg.Hostname, rdb.Microservice.TenantId, pg.Port)
+	log.Info().Str("username", pg.Username).Str("password", pg.Password).Str("hostname", pg.Hostname).
+		Int32("port", pg.Port).Msg("Initializing database connectivity")
 	return dsn
 }
 
@@ -166,20 +157,25 @@ func (rdb *RdbManager) ExecuteInitialize(context.Context) error {
 	// Make sure database exists before interacting with it.
 	dbtype := rdb.Microservice.InstanceConfiguration.Persistence.Rdb.Type
 	if strings.HasPrefix(dbtype, "postgres") {
+		pgconf, err := convertToPostgresConfig(rdb.Microservice.InstanceConfiguration.Persistence.Rdb)
+		if err != nil {
+			return err
+		}
+
 		// Verify/create tenant database.
-		err := rdb.assurePostgresDatabase()
+		err = rdb.assurePostgresDatabase(pgconf)
 		if err != nil {
 			return err
 		}
 
 		// Verify/create functional area schema.
-		err = rdb.assurePostgresSchema()
+		err = rdb.assurePostgresSchema(pgconf)
 		if err != nil {
 			return err
 		}
 
 		// Connect to database using params from instance configuration.
-		dsn := rdb.computeDsn()
+		dsn := rdb.computeDsn(pgconf)
 		db, err := gorm.Open(postgres.New(postgres.Config{
 			DSN: dsn,
 		}), &gorm.Config{
@@ -192,6 +188,16 @@ func (rdb *RdbManager) ExecuteInitialize(context.Context) error {
 		}
 
 		rdb.Database = db
+
+		sqldb, err := rdb.Database.DB()
+		if err != nil {
+			return err
+		}
+		sqldb.SetMaxIdleConns(1)
+		sqldb.SetMaxOpenConns(int(pgconf.MaxConnections))
+		sqldb.SetConnMaxLifetime(time.Hour)
+		log.Info().
+			Int32("max_connections", pgconf.MaxConnections).Msg("Created connection pool.")
 	} else {
 		return fmt.Errorf("relational database %s not currently supported", dbtype)
 	}
