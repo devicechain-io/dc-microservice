@@ -27,21 +27,37 @@ import (
 type Microservice struct {
 	StartTime time.Time
 
+	// Passed from environment
+	TenantId         string
+	TenantName       string
+	MicroserviceId   string
+	MicroserviceName string
+	FunctionalArea   string
+
+	// Configuration content
 	InstanceConfiguration        config.InstanceConfiguration
 	MicroserviceConfigurationRaw []byte
 
+	// Internal lifeycle processing
 	lifecycle LifecycleManager
 	shutdown  chan os.Signal
 	done      chan bool
 }
 
 // Create a new microservice instance
-func NewMicroservice(name string, callbacks LifecycleCallbacks) *Microservice {
+func NewMicroservice(callbacks LifecycleCallbacks) *Microservice {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
 
 	ms := &Microservice{}
 	ms.StartTime = time.Now()
-	ms.lifecycle = NewLifecycleManager(name, ms, callbacks)
+	ms.TenantId = os.Getenv(ENV_TENANT_ID)
+	ms.TenantName = os.Getenv(ENV_TENANT_NAME)
+	ms.MicroserviceId = os.Getenv(ENV_MICROSERVICE_ID)
+	ms.MicroserviceName = os.Getenv(ENV_MICROSERVICE_NAME)
+	ms.FunctionalArea = os.Getenv(ENV_MS_FUNCTIONAL_AREA)
+
+	// Create lifecycle manager and channels for tracking shutdown.
+	ms.lifecycle = NewLifecycleManager(ms.FunctionalArea, ms, callbacks)
 	ms.done = make(chan bool, 1)
 	ms.shutdown = make(chan os.Signal, 1)
 
@@ -60,7 +76,7 @@ func NewMicroservice(name string, callbacks LifecycleCallbacks) *Microservice {
 }
 
 // Prints a banner to the console
-func banner() {
+func (ms *Microservice) Banner() {
 	fmt.Println(color.HiGreenString(`
     ____            _           ________          _     
    / __ \___ _   __(_)_______  / ____/ /_  ____ _(_)___ 
@@ -69,17 +85,12 @@ func banner() {
 /_____/\___/|___/_/\___/\___/\____/_/ /_/\__,_/_/_/ /_/ 
 
 `))
-	dctId := os.Getenv(ENV_TENANT_ID)
-	dctName := os.Getenv(ENV_TENANT_NAME)
-	dcmId := os.Getenv(ENV_MICROSERVICE_ID)
-	dcmName := os.Getenv(ENV_MICROSERVICE_NAME)
-
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetBorder(false)
 	table.SetAutoWrapText(false)
 	data := [][]string{
-		{"Tenant", fmt.Sprintf("%s (%s)", dctName, dctId)},
-		{"Microservice", fmt.Sprintf("%s (%s)", dcmName, dcmId)},
+		{"Tenant", fmt.Sprintf("%s (%s)", ms.TenantName, ms.TenantId)},
+		{"Microservice", fmt.Sprintf("%s (%s)", ms.MicroserviceName, ms.MicroserviceId)},
 	}
 	for _, v := range data {
 		table.Append(v)
@@ -90,11 +101,11 @@ func banner() {
 
 // Create microservice and initialize/start it.
 func (ms *Microservice) Run() error {
-	banner()
+	ms.Banner()
 	log.Info().Msg("Creating new microservice and running intialization/startup...")
 
 	go func() {
-		err := ms.initializeAndStart()
+		err := ms.InitializeAndStart()
 		if err != nil {
 			ms.done <- true
 		}
@@ -105,13 +116,13 @@ func (ms *Microservice) Run() error {
 }
 
 // Issue initialize and start commands to microservice
-func (ms *Microservice) initializeAndStart() error {
-	err := ms.initialize(context.Background())
+func (ms *Microservice) InitializeAndStart() error {
+	err := ms.Initialize(context.Background())
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to initialize microservice")
 		return err
 	}
-	err = ms.start(context.Background())
+	err = ms.Start(context.Background())
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to start microservice")
 		return err
@@ -121,13 +132,13 @@ func (ms *Microservice) initializeAndStart() error {
 
 // Issue stop and terminate commands to microservice
 func (ms *Microservice) ShutDownNow() {
-	err := ms.stop(context.Background())
+	err := ms.Stop(context.Background())
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to stop microservice")
 		ms.done <- true
 		return
 	}
-	err = ms.terminate(context.Background())
+	err = ms.Terminate(context.Background())
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to terminate microservice")
 		ms.done <- true
@@ -140,11 +151,6 @@ func (ms *Microservice) ShutDownNow() {
 // Wait for microservice to shut down
 func (ms *Microservice) waitForShutdown() {
 	<-ms.done
-}
-
-// Initialize microservice
-func (ms *Microservice) initialize(ctx context.Context) error {
-	return ms.lifecycle.initialize(ctx)
 }
 
 // Reloads instance configuration from configmap volume mapping
@@ -177,8 +183,13 @@ func (ms *Microservice) ReloadMicroserviceConfiguration() error {
 	return nil
 }
 
+// Initialize microservice
+func (ms *Microservice) Initialize(ctx context.Context) error {
+	return ms.lifecycle.Initialize(ctx)
+}
+
 // Initialize microservice (as called by lifecycle manager)
-func (ms *Microservice) lifecycleInitialize(ctx context.Context) error {
+func (ms *Microservice) ExecuteInitialize(ctx context.Context) error {
 	err := ms.ReloadInstanceConfiguration()
 	if err != nil {
 		return err
@@ -195,34 +206,34 @@ func (ms *Microservice) lifecycleInitialize(ctx context.Context) error {
 }
 
 // Start microservice
-func (ms *Microservice) start(ctx context.Context) error {
-	return ms.lifecycle.start(ctx)
+func (ms *Microservice) Start(ctx context.Context) error {
+	return ms.lifecycle.Start(ctx)
 }
 
 // Start microservice (as called by lifecycle manager)
-func (ms *Microservice) lifecycleStart(ctx context.Context) error {
+func (ms *Microservice) ExecuteStart(ctx context.Context) error {
 	log.Info().Msg("Microservice started.")
 	return nil
 }
 
 // Stop microservice
-func (ms *Microservice) stop(ctx context.Context) error {
-	return ms.lifecycle.stop(ctx)
+func (ms *Microservice) Stop(ctx context.Context) error {
+	return ms.lifecycle.Stop(ctx)
 }
 
 // Stop microservice (as called by lifecycle manager)
-func (ms *Microservice) lifecycleStop(ctx context.Context) error {
+func (ms *Microservice) ExecuteStop(ctx context.Context) error {
 	log.Info().Msg("Microservice stopped.")
 	return nil
 }
 
-// Stop microservice
-func (ms *Microservice) terminate(ctx context.Context) error {
-	return ms.lifecycle.terminate(ctx)
+// Terminate microservice
+func (ms *Microservice) Terminate(ctx context.Context) error {
+	return ms.lifecycle.Terminate(ctx)
 }
 
-// Stop microservice (as called by lifecycle manager)
-func (ms *Microservice) lifecycleTerminate(ctx context.Context) error {
+// Terminate microservice (as called by lifecycle manager)
+func (ms *Microservice) ExecuteTerminate(ctx context.Context) error {
 	log.Info().Msg("Microservice terminated.")
 	return nil
 }

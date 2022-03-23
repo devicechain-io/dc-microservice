@@ -101,17 +101,17 @@ func NewDefaultInstanceConfiguration() *InstanceConfiguration {
 			Rdb: RdbConfiguration{
 				Type: "postgres95",
 				Configuration: map[string]interface{}{
-					"hostname":       "dc-postgresql.sitewhere-system",
+					"hostname":       "dc-postgresql.dc-system",
 					"port":           5432,
 					"maxConnections": 5,
-					"username":       "syncope",
-					"password":       "syncope",
+					"username":       "devicechain",
+					"password":       "devicechain",
 				},
 			},
 			Tsdb: TsdbConfiguration{
 				Type: "influxdb",
 				Configuration: map[string]interface{}{
-					"hostname":     "dc-infrastructure-influxdb.sitewhere-system",
+					"hostname":     "dc-infrastructure-influxdb.dc-system",
 					"port":         8086,
 					"databaseName": "tenant_${tenant.id}",
 				},

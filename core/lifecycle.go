@@ -32,16 +32,16 @@ const (
 // Common lifecycle concept for components
 type LifecycleComponent interface {
 	// Initialize component. Happens once on startup.
-	lifecycleInitialize(context.Context) error
+	ExecuteInitialize(context.Context) error
 
 	// Start component. May happen on startup or after stop.
-	lifecycleStart(context.Context) error
+	ExecuteStart(context.Context) error
 
 	// Stop a started component.
-	lifecycleStop(context.Context) error
+	ExecuteStop(context.Context) error
 
 	// Terminate component.
-	lifecycleTerminate(context.Context) error
+	ExecuteTerminate(context.Context) error
 }
 
 // Callback used to add behavior to a lifecycle component.
@@ -73,6 +73,16 @@ type LifecycleCallbacks struct {
 	Terminator  LifecycleCallback
 }
 
+// Provides lifecycle callbacks with all no-op implementations.
+func NewNoOpLifecycleCallbacks() LifecycleCallbacks {
+	return LifecycleCallbacks{
+		Initializer: NewNoOpLifecycleCallback(),
+		Starter:     NewNoOpLifecycleCallback(),
+		Stopper:     NewNoOpLifecycleCallback(),
+		Terminator:  NewNoOpLifecycleCallback(),
+	}
+}
+
 type LifecycleManager struct {
 	Name      string
 	Component LifecycleComponent
@@ -93,7 +103,7 @@ func (mgr *LifecycleManager) SetLifecycleState(state LifecycleState) {
 }
 
 // Handle component initialization
-func (mgr *LifecycleManager) initialize(ctx context.Context) error {
+func (mgr *LifecycleManager) Initialize(ctx context.Context) error {
 	if mgr.State != Uninitialized {
 		return errors.New("attempting to initialize component that is already initialized")
 	}
@@ -108,7 +118,7 @@ func (mgr *LifecycleManager) initialize(ctx context.Context) error {
 	}
 
 	// Run primary initialization functionality
-	err = mgr.Component.lifecycleInitialize(ctx)
+	err = mgr.Component.ExecuteInitialize(ctx)
 	if err != nil {
 		mgr.SetLifecycleState(prev)
 		return err
@@ -126,7 +136,7 @@ func (mgr *LifecycleManager) initialize(ctx context.Context) error {
 }
 
 // Handle component startup
-func (mgr *LifecycleManager) start(ctx context.Context) error {
+func (mgr *LifecycleManager) Start(ctx context.Context) error {
 	if mgr.State == Uninitialized {
 		return errors.New("attempting to start an uninitialized component")
 	}
@@ -156,7 +166,7 @@ func (mgr *LifecycleManager) start(ctx context.Context) error {
 	}
 
 	// Run primary startup functionality
-	err = mgr.Component.lifecycleStart(ctx)
+	err = mgr.Component.ExecuteStart(ctx)
 	if err != nil {
 		mgr.SetLifecycleState(prev)
 		return err
@@ -174,7 +184,7 @@ func (mgr *LifecycleManager) start(ctx context.Context) error {
 }
 
 // Handle component shutdown
-func (mgr *LifecycleManager) stop(ctx context.Context) error {
+func (mgr *LifecycleManager) Stop(ctx context.Context) error {
 	if mgr.State == Uninitialized {
 		return errors.New("attempting to stop an uninitialized component")
 	}
@@ -204,7 +214,7 @@ func (mgr *LifecycleManager) stop(ctx context.Context) error {
 	}
 
 	// Run primary shutdown functionality
-	err = mgr.Component.lifecycleStop(ctx)
+	err = mgr.Component.ExecuteStop(ctx)
 	if err != nil {
 		mgr.SetLifecycleState(prev)
 		return err
@@ -222,7 +232,7 @@ func (mgr *LifecycleManager) stop(ctx context.Context) error {
 }
 
 // Handle component termination
-func (mgr *LifecycleManager) terminate(ctx context.Context) error {
+func (mgr *LifecycleManager) Terminate(ctx context.Context) error {
 	if mgr.State == Uninitialized {
 		return errors.New("attempting to terminate component that is not initialized")
 	}
@@ -240,7 +250,7 @@ func (mgr *LifecycleManager) terminate(ctx context.Context) error {
 	}
 
 	// Run primary terminate functionality
-	err = mgr.Component.lifecycleTerminate(ctx)
+	err = mgr.Component.ExecuteTerminate(ctx)
 	if err != nil {
 		mgr.SetLifecycleState(prev)
 		return err

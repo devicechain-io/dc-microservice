@@ -57,6 +57,6 @@ func main() {
 			},
 		},
 	}
-	ms := core.NewMicroservice("test-service", callbacks)
+	ms := core.NewMicroservice(callbacks)
 	ms.Run()
 }
