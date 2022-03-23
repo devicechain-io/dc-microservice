@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/devicechain-io/dc-microservice/core"
+	gormigrate "github.com/go-gormigrate/gormigrate/v2"
 	pgx "github.com/jackc/pgx/v4"
 	"github.com/rs/zerolog/log"
 	"gorm.io/driver/postgres"
@@ -23,14 +24,17 @@ import (
 type RdbManager struct {
 	Microservice *core.Microservice
 	Database     *gorm.DB
+	Migrations   []*gormigrate.Migration
 
 	lifecycle core.LifecycleManager
 }
 
 // Create a new rdb manager.
-func NewRdbManager(ms *core.Microservice, callbacks core.LifecycleCallbacks) *RdbManager {
+func NewRdbManager(ms *core.Microservice, callbacks core.LifecycleCallbacks,
+	migrations []*gormigrate.Migration) *RdbManager {
 	rdb := &RdbManager{
 		Microservice: ms,
+		Migrations:   migrations,
 	}
 	// Create lifecycle manager and channels for tracking shutdown.
 	rdbname := fmt.Sprintf("%s-%s", ms.FunctionalArea, "rdb")
@@ -79,6 +83,7 @@ func (rdb *RdbManager) assurePostgresDatabase() error {
 	}
 
 	if !found {
+		// Create tenant database.
 		log.Info().Msg("Database was not found. Creating...")
 		result := conn.PgConn().ExecParams(context.Background(), fmt.Sprintf("CREATE DATABASE %s", rdb.Microservice.TenantId),
 			[][]byte{}, nil, nil, nil)
@@ -87,6 +92,56 @@ func (rdb *RdbManager) assurePostgresDatabase() error {
 			return err
 		}
 		log.Info().Str("database", rdb.Microservice.TenantId).Msg("Successfully created tenant database.")
+	}
+
+	return nil
+}
+
+// Compute non-database connection URL for querying/creating database.
+func (rdb *RdbManager) computeDatabaseUrl() string {
+	config := rdb.Microservice.InstanceConfiguration.Persistence.Rdb
+	hostname := fmt.Sprintf("%v", config.Configuration["hostname"])
+	port := fmt.Sprintf("%v", config.Configuration["port"])
+	username := fmt.Sprintf("%v", config.Configuration["username"])
+	password := fmt.Sprintf("%v", config.Configuration["password"])
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s", username, password, hostname, port, rdb.Microservice.TenantId)
+}
+
+// Assure that functional area schema is created before connecting to it.
+func (rdb *RdbManager) assurePostgresSchema() error {
+	log.Info().Str("schema", rdb.Microservice.FunctionalArea).Msg("Verifying that schema exists.")
+	url := rdb.computeDatabaseUrl()
+	conn, err := pgx.Connect(context.Background(), url)
+	if err != nil {
+		return err
+	}
+	defer conn.Close(context.Background())
+
+	// List all databases
+	found := false
+	result := conn.PgConn().ExecParams(context.Background(), "SELECT schema_name FROM information_schema.schemata", [][]byte{}, nil, nil, nil)
+	for result.NextRow() {
+		currsch := string(result.Values()[0])
+		if rdb.Microservice.FunctionalArea == currsch {
+			log.Info().Msg("Found existing schema for functional area.")
+			found = true
+		}
+	}
+	_, err = result.Close()
+	if err != nil {
+		return err
+	}
+
+	if !found {
+		// Create functional area schema.
+		log.Info().Msg("Schema was not found. Creating...")
+		result := conn.PgConn().ExecParams(context.Background(), fmt.Sprintf("CREATE SCHEMA \"%s\"", rdb.Microservice.FunctionalArea),
+			[][]byte{}, nil, nil, nil)
+		_, err := result.Close()
+		if err != nil {
+			return err
+		}
+		log.Info().Str("database", rdb.Microservice.FunctionalArea).Msg("Successfully created schema.")
 	}
 
 	return nil
@@ -111,7 +166,14 @@ func (rdb *RdbManager) ExecuteInitialize(context.Context) error {
 	// Make sure database exists before interacting with it.
 	dbtype := rdb.Microservice.InstanceConfiguration.Persistence.Rdb.Type
 	if strings.HasPrefix(dbtype, "postgres") {
+		// Verify/create tenant database.
 		err := rdb.assurePostgresDatabase()
+		if err != nil {
+			return err
+		}
+
+		// Verify/create functional area schema.
+		err = rdb.assurePostgresSchema()
 		if err != nil {
 			return err
 		}
@@ -133,6 +195,13 @@ func (rdb *RdbManager) ExecuteInitialize(context.Context) error {
 	} else {
 		return fmt.Errorf("relational database %s not currently supported", dbtype)
 	}
+
+	// Run migrations in a database independent manner.
+	m := gormigrate.New(rdb.Database, gormigrate.DefaultOptions, rdb.Migrations)
+	if err := m.Migrate(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
