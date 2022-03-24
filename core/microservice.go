@@ -101,10 +101,10 @@ func (ms *Microservice) Banner() {
 
 // Create microservice and initialize/start it.
 func (ms *Microservice) Run() error {
-	ms.Banner()
 	log.Info().Msg("Creating new microservice and running intialization/startup...")
 
 	go func() {
+		ms.Banner()
 		err := ms.InitializeAndStart()
 		if err != nil {
 			ms.done <- true
