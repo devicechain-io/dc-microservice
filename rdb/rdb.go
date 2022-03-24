@@ -32,7 +32,7 @@ func NewRdbManager(ms *core.Microservice, callbacks core.LifecycleCallbacks,
 		Microservice: ms,
 		Migrations:   migrations,
 	}
-	// Create lifecycle manager and channels for tracking shutdown.
+	// Create lifecycle manager.
 	rdbname := fmt.Sprintf("%s-%s", ms.FunctionalArea, "rdb")
 	rdb.lifecycle = core.NewLifecycleManager(rdbname, rdb, callbacks)
 	return rdb

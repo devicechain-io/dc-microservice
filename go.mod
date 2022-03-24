@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/fatih/color v1.13.0
 	github.com/go-gormigrate/gormigrate/v2 v2.0.0
+	github.com/graphql-go/graphql v0.8.0
 	github.com/jackc/pgx/v4 v4.15.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/rs/zerolog v1.26.1
