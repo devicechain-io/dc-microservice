@@ -66,18 +66,8 @@ func (gql *GraphQLManager) Start(ctx context.Context) error {
 	return gql.lifecycle.Start(ctx)
 }
 
-func (gql *GraphQLManager) ExecuteQuery(query string) *graphql.Result {
-	result := graphql.Do(graphql.Params{
-		Schema:        gql.Schema,
-		RequestString: query,
-	})
-	if len(result.Errors) > 0 {
-		fmt.Printf("wrong result, unexpected errors: %v", result.Errors)
-	}
-	return result
-}
-
-type postData struct {
+// Format for query data.
+type graphqlData struct {
 	Query     string                 `json:"query"`
 	Operation string                 `json:"operation"`
 	Variables map[string]interface{} `json:"variables"`
@@ -88,7 +78,7 @@ func (gql *GraphQLManager) ExecuteStart(context.Context) error {
 	gql.done = make(chan bool, 1)
 
 	http.HandleFunc("/graphql", func(w http.ResponseWriter, req *http.Request) {
-		var p = &postData{}
+		var p = &graphqlData{}
 		if err := json.NewDecoder(req.Body).Decode(p); err != nil {
 			w.WriteHeader(400)
 			return
@@ -107,7 +97,7 @@ func (gql *GraphQLManager) ExecuteStart(context.Context) error {
 
 	go func() {
 		gql.Server = &http.Server{Addr: fmt.Sprintf(":%d", GRAPHQL_PORT)}
-		log.Info().Int32("port", 8080).Msg("Starting GraphQL server.")
+		log.Info().Int32("port", GRAPHQL_PORT).Msg("Starting GraphQL server.")
 		if err := gql.Server.ListenAndServe(); err != http.ErrServerClosed {
 			log.Error().Err(err).Msg("Error starting GraphQL server.")
 		}
@@ -127,6 +117,7 @@ func (gql *GraphQLManager) ExecuteStop(context.Context) error {
 	if err != nil {
 		return err
 	}
+	log.Info().Int32("port", GRAPHQL_PORT).Msg("GraphQL server shut down successfully.")
 	return nil
 }
 

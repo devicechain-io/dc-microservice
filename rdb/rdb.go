@@ -54,7 +54,15 @@ func (rdb *RdbManager) ExecuteInitialize(context.Context) error {
 	}
 
 	// Run migrations in a database independent manner.
-	m := gormigrate.New(rdb.Database, gormigrate.DefaultOptions, rdb.Migrations)
+	mtable := strings.ReplaceAll(fmt.Sprintf("%s_%s", rdb.Microservice.FunctionalArea, "migrations"), "-", "_")
+	options := &gormigrate.Options{
+		TableName:                 mtable,
+		IDColumnName:              "id",
+		IDColumnSize:              255,
+		UseTransaction:            false,
+		ValidateUnknownMigrations: false,
+	}
+	m := gormigrate.New(rdb.Database, options, rdb.Migrations)
 	if err := m.Migrate(); err != nil {
 		return err
 	}
