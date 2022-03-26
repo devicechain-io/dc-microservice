@@ -1,0 +1,27 @@
+# Base elements in gorm RDB model.
+interface Model {
+    id: ID!
+    created_at: String
+    updated_at: String
+    deleted_at: String
+}
+
+# Entity referenced by unique token.
+interface TokenReference {
+    token: String!
+}
+
+# Entity that provides human-readable name-description.
+interface NamedEntity {
+    name: String
+    description: String
+}
+
+# Entity that provides branding information.
+interface BrandedEntity {
+    imageUrl: String
+    icon: String
+    backgroundColor: String
+    foregroundColor: String
+    borderColor: String
+}

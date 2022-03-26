@@ -8,12 +8,12 @@ package graphql
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/devicechain-io/dc-microservice/core"
-	"github.com/graphql-go/graphql"
+	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/rs/zerolog/log"
 )
 
@@ -24,20 +24,18 @@ const (
 // Manages lifecycle of microservice GraphQL server.
 type GraphQLManager struct {
 	Microservice *core.Microservice
-	SchemaConfig graphql.SchemaConfig
 	Schema       graphql.Schema
 	Server       *http.Server
 
 	lifecycle core.LifecycleManager
-	done      chan bool
 }
 
 // Create a new rdb manager.
 func NewGraphQLManager(ms *core.Microservice, callbacks core.LifecycleCallbacks,
-	sconfig graphql.SchemaConfig) *GraphQLManager {
+	schema graphql.Schema) *GraphQLManager {
 	gql := &GraphQLManager{
 		Microservice: ms,
-		SchemaConfig: sconfig,
+		Schema:       schema,
 	}
 	// Create lifecycle manager.
 	gqlname := fmt.Sprintf("%s-%s", ms.FunctionalArea, "graphql")
@@ -52,12 +50,6 @@ func (gql *GraphQLManager) Initialize(ctx context.Context) error {
 
 // Lifecycle callback that runs initialization logic.
 func (gql *GraphQLManager) ExecuteInitialize(context.Context) error {
-	schema, err := graphql.NewSchema(gql.SchemaConfig)
-	if err != nil {
-		return err
-	}
-
-	gql.Schema = schema
 	return nil
 }
 
@@ -66,35 +58,12 @@ func (gql *GraphQLManager) Start(ctx context.Context) error {
 	return gql.lifecycle.Start(ctx)
 }
 
-// Format for query data.
-type graphqlData struct {
-	Query     string                 `json:"query"`
-	Operation string                 `json:"operation"`
-	Variables map[string]interface{} `json:"variables"`
-}
-
 // Lifecycle callback that runs startup logic.
 func (gql *GraphQLManager) ExecuteStart(context.Context) error {
-	gql.done = make(chan bool, 1)
+	// Add handler for queries
+	http.Handle("/graphql", &relay.Handler{Schema: &gql.Schema})
 
-	http.HandleFunc("/graphql", func(w http.ResponseWriter, req *http.Request) {
-		var p = &graphqlData{}
-		if err := json.NewDecoder(req.Body).Decode(p); err != nil {
-			w.WriteHeader(400)
-			return
-		}
-		result := graphql.Do(graphql.Params{
-			Context:        req.Context(),
-			Schema:         gql.Schema,
-			RequestString:  p.Query,
-			VariableValues: p.Variables,
-			OperationName:  p.Operation,
-		})
-		if err := json.NewEncoder(w).Encode(result); err != nil {
-			log.Error().Err(err).Msg("Unable to encode GraphQL json result.")
-		}
-	})
-
+	// Start server in a background thread in order to continue server startup.
 	go func() {
 		gql.Server = &http.Server{Addr: fmt.Sprintf(":%d", GRAPHQL_PORT)}
 		log.Info().Int32("port", GRAPHQL_PORT).Msg("Starting GraphQL server.")
