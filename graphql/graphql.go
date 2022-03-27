@@ -12,8 +12,8 @@ import (
 	"net/http"
 
 	"github.com/devicechain-io/dc-microservice/core"
+	"github.com/devicechain-io/dc-microservice/rdb"
 	graphql "github.com/graph-gophers/graphql-go"
-	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/rs/zerolog/log"
 )
 
@@ -26,16 +26,18 @@ type GraphQLManager struct {
 	Microservice *core.Microservice
 	Schema       graphql.Schema
 	Server       *http.Server
+	RdbManager   *rdb.RdbManager
 
 	lifecycle core.LifecycleManager
 }
 
 // Create a new rdb manager.
 func NewGraphQLManager(ms *core.Microservice, callbacks core.LifecycleCallbacks,
-	schema graphql.Schema) *GraphQLManager {
+	schema graphql.Schema, rdbmgr *rdb.RdbManager) *GraphQLManager {
 	gql := &GraphQLManager{
 		Microservice: ms,
 		Schema:       schema,
+		RdbManager:   rdbmgr,
 	}
 	// Create lifecycle manager.
 	gqlname := fmt.Sprintf("%s-%s", ms.FunctionalArea, "graphql")
@@ -61,7 +63,7 @@ func (gql *GraphQLManager) Start(ctx context.Context) error {
 // Lifecycle callback that runs startup logic.
 func (gql *GraphQLManager) ExecuteStart(context.Context) error {
 	// Add handler for queries
-	http.Handle("/graphql", &relay.Handler{Schema: &gql.Schema})
+	http.Handle("/graphql", NewHttpHandler(&gql.Schema, gql.RdbManager))
 
 	// Start server in a background thread in order to continue server startup.
 	go func() {
