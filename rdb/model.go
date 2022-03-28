@@ -28,6 +28,12 @@ type BrandedEntity struct {
 	BorderColor     sql.NullString `gorm:"size:32"`
 }
 
+// Information for paged result sets
+type Pagination struct {
+	PageNumber int32
+	PageSize   int32
+}
+
 // Creates a sql.NullString from a string constant.
 func NullStrOf(value string) sql.NullString {
 	return sql.NullString{

@@ -25,3 +25,9 @@ interface BrandedEntity {
     foregroundColor: String
     borderColor: String
 }
+
+# Information for paged result sets.
+interface Pagination {
+    pageNumber: Int
+    pageSize: Int
+}
