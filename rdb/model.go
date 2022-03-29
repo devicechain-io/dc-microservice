@@ -35,9 +35,15 @@ type Pagination struct {
 }
 
 // Creates a sql.NullString from a string constant.
-func NullStrOf(value string) sql.NullString {
-	return sql.NullString{
-		String: value,
-		Valid:  true,
+func NullStrOf(value *string) sql.NullString {
+	if value != nil {
+		return sql.NullString{
+			String: *value,
+			Valid:  true,
+		}
+	} else {
+		return sql.NullString{
+			Valid: false,
+		}
 	}
 }
