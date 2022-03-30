@@ -8,10 +8,8 @@ package config
 
 // Redis configuration parameters
 type RedisConfiguration struct {
-	Hostname        string
-	Port            int32
-	NodeCount       int32
-	MasterGroupName string
+	Hostname string
+	Port     int32
 }
 
 // Kafka configuration parameters
@@ -28,21 +26,18 @@ type MetricsConfiguration struct {
 	HttpPort int32
 }
 
-// gRPC connectivity configuration
-type GrpcConfiguration struct {
-	MaxRetryCount         uint32
-	InitialBackoffSeconds uint32
-	MaxBackoffSeconds     uint32
-	BackoffMultiplier     float32
-	ResolveFQDN           bool
+// Keycloak connectivity configuration
+type KeycloakConfiguration struct {
+	Hostname string
+	Port     uint32
 }
 
 // Infrastructure configuration section
 type InfrastructureConfiguration struct {
-	Redis   RedisConfiguration
-	Kafka   KafkaConfiguration
-	Metrics MetricsConfiguration
-	Grpc    GrpcConfiguration
+	Redis    RedisConfiguration
+	Kafka    KafkaConfiguration
+	Metrics  MetricsConfiguration
+	Keycloak KeycloakConfiguration
 }
 
 // Relational database configuration
@@ -74,10 +69,8 @@ func NewDefaultInstanceConfiguration() *InstanceConfiguration {
 	return &InstanceConfiguration{
 		Infrastructure: InfrastructureConfiguration{
 			Redis: RedisConfiguration{
-				Hostname:        "dc-infrastructure-redis-ha-announce",
-				Port:            26379,
-				NodeCount:       3,
-				MasterGroupName: "devicechain",
+				Hostname: "dc-redis-master.dc-system",
+				Port:     6379,
 			},
 			Kafka: KafkaConfiguration{
 				Hostname:                      "dc-kafka-kafka-bootstrap",
@@ -89,12 +82,9 @@ func NewDefaultInstanceConfiguration() *InstanceConfiguration {
 				Enabled:  true,
 				HttpPort: 9090,
 			},
-			Grpc: GrpcConfiguration{
-				MaxRetryCount:         6,
-				InitialBackoffSeconds: 10,
-				MaxBackoffSeconds:     600,
-				BackoffMultiplier:     1.5,
-				ResolveFQDN:           false,
+			Keycloak: KeycloakConfiguration{
+				Hostname: "dc-keycloak",
+				Port:     1234,
 			},
 		},
 		Persistence: PersistenceConfiguration{
@@ -111,7 +101,7 @@ func NewDefaultInstanceConfiguration() *InstanceConfiguration {
 			Tsdb: TsdbConfiguration{
 				Type: "influxdb",
 				Configuration: map[string]interface{}{
-					"hostname":     "dc-infrastructure-influxdb.dc-system",
+					"hostname":     "dc-influxdb.dc-system",
 					"port":         8086,
 					"databaseName": "tenant_${tenant.id}",
 				},

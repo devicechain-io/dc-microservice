@@ -18,6 +18,7 @@ import (
 	"github.com/devicechain-io/dc-microservice/config"
 	"github.com/olekukonko/tablewriter"
 
+	"github.com/bsm/redislock"
 	"github.com/fatih/color"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -39,6 +40,10 @@ type Microservice struct {
 	InstanceConfiguration        config.InstanceConfiguration
 	MicroserviceConfigurationRaw []byte
 
+	// Common microservice tooling
+	Redis     *RedisManager
+	RedisLock *redislock.Client
+
 	// Internal lifeycle processing
 	lifecycle LifecycleManager
 	shutdown  chan os.Signal
@@ -57,6 +62,10 @@ func NewMicroservice(callbacks LifecycleCallbacks) *Microservice {
 	ms.MicroserviceId = os.Getenv(ENV_MICROSERVICE_ID)
 	ms.MicroserviceName = os.Getenv(ENV_MICROSERVICE_NAME)
 	ms.FunctionalArea = os.Getenv(ENV_MS_FUNCTIONAL_AREA)
+
+	// Create common tooling.
+	ms.Redis = NewRedisManager(ms, NewNoOpLifecycleCallbacks())
+	ms.RedisLock = redislock.New(ms.Redis.Client)
 
 	// Create lifecycle manager and channels for tracking shutdown.
 	ms.lifecycle = NewLifecycleManager(ms.FunctionalArea, ms, callbacks)
@@ -150,6 +159,20 @@ func (ms *Microservice) ShutDownNow() {
 	ms.done <- true
 }
 
+// Use Redis to get a lock across all microservice replicas.
+func (ms *Microservice) GetDistributedLock(ctx context.Context, duration time.Duration, retries int,
+	logic func(ctx context.Context) error) error {
+	lock, err := ms.RedisLock.Obtain(ctx, ms.FunctionalArea, duration, &redislock.Options{
+		RetryStrategy: redislock.LimitRetry(redislock.LinearBackoff(duration), retries),
+	})
+	if err == redislock.ErrNotObtained {
+		return err
+	}
+	defer lock.Release(ctx)
+
+	return logic(ctx)
+}
+
 // Wait for microservice to shut down
 func (ms *Microservice) waitForShutdown() {
 	<-ms.done
@@ -192,18 +215,22 @@ func (ms *Microservice) Initialize(ctx context.Context) error {
 
 // Initialize microservice (as called by lifecycle manager)
 func (ms *Microservice) ExecuteInitialize(ctx context.Context) error {
+	// Load instance configuration.
 	err := ms.ReloadInstanceConfiguration()
 	if err != nil {
 		return err
 	}
 	log.Info().Msg("Successfully loaded instance configuration.")
 
+	// Load microservice configuration.
 	err = ms.ReloadMicroserviceConfiguration()
 	if err != nil {
 		return err
 	}
 	log.Info().Msg("Successfully loaded microservice configuration.")
 
+	// Initialize Redis connectivity.
+	err = ms.Redis.Initialize(ctx)
 	return err
 }
 
@@ -214,8 +241,9 @@ func (ms *Microservice) Start(ctx context.Context) error {
 
 // Start microservice (as called by lifecycle manager)
 func (ms *Microservice) ExecuteStart(ctx context.Context) error {
-	log.Info().Msg("Microservice started.")
-	return nil
+	// Execute Redis startup.
+	err := ms.Redis.Start(ctx)
+	return err
 }
 
 // Stop microservice
@@ -225,8 +253,9 @@ func (ms *Microservice) Stop(ctx context.Context) error {
 
 // Stop microservice (as called by lifecycle manager)
 func (ms *Microservice) ExecuteStop(ctx context.Context) error {
-	log.Info().Msg("Microservice stopped.")
-	return nil
+	// Execute Redis shutdown.
+	err := ms.Redis.Stop(ctx)
+	return err
 }
 
 // Terminate microservice
@@ -236,6 +265,7 @@ func (ms *Microservice) Terminate(ctx context.Context) error {
 
 // Terminate microservice (as called by lifecycle manager)
 func (ms *Microservice) ExecuteTerminate(ctx context.Context) error {
-	log.Info().Msg("Microservice terminated.")
-	return nil
+	// Execute Redis termination.
+	err := ms.Redis.Terminate(ctx)
+	return err
 }
