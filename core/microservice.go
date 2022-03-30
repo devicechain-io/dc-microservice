@@ -28,6 +28,7 @@ type Microservice struct {
 	StartTime time.Time
 
 	// Passed from environment
+	InstanceId       string
 	TenantId         string
 	TenantName       string
 	MicroserviceId   string
@@ -50,6 +51,7 @@ func NewMicroservice(callbacks LifecycleCallbacks) *Microservice {
 
 	ms := &Microservice{}
 	ms.StartTime = time.Now()
+	ms.InstanceId = os.Getenv(ENV_INSTANCE_ID)
 	ms.TenantId = os.Getenv(ENV_TENANT_ID)
 	ms.TenantName = os.Getenv(ENV_TENANT_NAME)
 	ms.MicroserviceId = os.Getenv(ENV_MICROSERVICE_ID)

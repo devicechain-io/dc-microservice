@@ -13,6 +13,7 @@ import (
 
 	"github.com/devicechain-io/dc-microservice/core"
 	"github.com/devicechain-io/dc-microservice/rdb"
+	"github.com/friendsofgo/graphiql"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/rs/zerolog/log"
 )
@@ -62,8 +63,16 @@ func (gql *GraphQLManager) Start(ctx context.Context) error {
 
 // Lifecycle callback that runs startup logic.
 func (gql *GraphQLManager) ExecuteStart(context.Context) error {
+	graphiqlHandler, err := graphiql.NewGraphiqlHandler(fmt.Sprintf("/%s/%s/%s/%s",
+		gql.Microservice.InstanceId, gql.Microservice.TenantId, gql.Microservice.FunctionalArea,
+		"graphql"))
+	if err != nil {
+		panic(err)
+	}
+
 	// Add handler for queries
 	http.Handle("/graphql", NewHttpHandler(&gql.Schema, gql.RdbManager))
+	http.Handle("/graphiql", graphiqlHandler)
 
 	// Start server in a background thread in order to continue server startup.
 	go func() {

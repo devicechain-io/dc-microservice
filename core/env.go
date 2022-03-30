@@ -7,6 +7,7 @@ Proprietary and confidential.
 package core
 
 const (
+	ENV_INSTANCE_ID        = "DC_INSTANCE_ID"
 	ENV_TENANT_ID          = "DC_TENANT_ID"
 	ENV_TENANT_NAME        = "DC_TENANT_NAME"
 	ENV_MICROSERVICE_ID    = "DC_MICROSERVICE_ID"
