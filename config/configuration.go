@@ -84,7 +84,7 @@ func NewDefaultInstanceConfiguration() *InstanceConfiguration {
 			},
 			Keycloak: KeycloakConfiguration{
 				Hostname: "dc-keycloak",
-				Port:     1234,
+				Port:     8080,
 			},
 		},
 		Persistence: PersistenceConfiguration{
