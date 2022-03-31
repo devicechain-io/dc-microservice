@@ -83,7 +83,7 @@ func NewDefaultInstanceConfiguration() *InstanceConfiguration {
 				HttpPort: 9090,
 			},
 			Keycloak: KeycloakConfiguration{
-				Hostname: "dc-keycloak",
+				Hostname: "dc-keycloak.dc-system",
 				Port:     8080,
 			},
 		},
