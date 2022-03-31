@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bsm/redislock"
 	redis "github.com/go-redis/redis/v8"
 	"github.com/rs/zerolog/log"
 )
@@ -18,6 +19,7 @@ import (
 type RedisManager struct {
 	Microservice *Microservice
 	Client       *redis.Client
+	RedisLock    *redislock.Client
 
 	lifecycle LifecycleManager
 }
@@ -57,6 +59,9 @@ func (rmgr *RedisManager) ExecuteInitialize(ctx context.Context) error {
 		return status.Err()
 	}
 	log.Info().Msg(fmt.Sprintf("Verified successful Redis ping against %s", url))
+
+	// Set up redis lock implementation using client.
+	rmgr.RedisLock = redislock.New(rmgr.Client)
 
 	return nil
 }

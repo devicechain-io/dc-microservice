@@ -41,8 +41,7 @@ type Microservice struct {
 	MicroserviceConfigurationRaw []byte
 
 	// Common microservice tooling
-	Redis     *RedisManager
-	RedisLock *redislock.Client
+	Redis *RedisManager
 
 	// Internal lifeycle processing
 	lifecycle LifecycleManager
@@ -65,7 +64,6 @@ func NewMicroservice(callbacks LifecycleCallbacks) *Microservice {
 
 	// Create common tooling.
 	ms.Redis = NewRedisManager(ms, NewNoOpLifecycleCallbacks())
-	ms.RedisLock = redislock.New(ms.Redis.Client)
 
 	// Create lifecycle manager and channels for tracking shutdown.
 	ms.lifecycle = NewLifecycleManager(ms.FunctionalArea, ms, callbacks)
@@ -160,9 +158,11 @@ func (ms *Microservice) ShutDownNow() {
 }
 
 // Use Redis to get a lock across all microservice replicas.
-func (ms *Microservice) GetDistributedLock(ctx context.Context, duration time.Duration, retries int,
+func (ms *Microservice) WithDistributedLock(ctx context.Context, duration time.Duration, retries int,
 	logic func(ctx context.Context) error) error {
-	lock, err := ms.RedisLock.Obtain(ctx, ms.FunctionalArea, duration, &redislock.Options{
+	log.Info().Msg(fmt.Sprintf("Getting distributed lock for %s with duration %+v and %d retries...",
+		ms.FunctionalArea, duration, retries))
+	lock, err := ms.Redis.RedisLock.Obtain(ctx, ms.FunctionalArea, duration, &redislock.Options{
 		RetryStrategy: redislock.LimitRetry(redislock.LinearBackoff(duration), retries),
 	})
 	if err == redislock.ErrNotObtained {
@@ -170,6 +170,7 @@ func (ms *Microservice) GetDistributedLock(ctx context.Context, duration time.Du
 	}
 	defer lock.Release(ctx)
 
+	log.Info().Msg("Lock obtained. Running guarded logic.")
 	return logic(ctx)
 }
 
