@@ -10,7 +10,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/devicechain-io/dc-microservice/rdb"
 	graphql "github.com/graph-gophers/graphql-go"
 
 	"github.com/graph-gophers/graphql-go/relay"
@@ -24,23 +23,25 @@ const (
 
 // Adds extra context to http request.
 type HttpHandler struct {
-	Schema     *graphql.Schema
-	Relay      *relay.Handler
-	RdbManager *rdb.RdbManager
+	Schema           *graphql.Schema
+	Relay            *relay.Handler
+	ContextProviders map[ContextKey]interface{}
 }
 
 // Create new http handler.
-func NewHttpHandler(schema *graphql.Schema, rdbmgr *rdb.RdbManager) *HttpHandler {
+func NewHttpHandler(schema *graphql.Schema, providers map[ContextKey]interface{}) *HttpHandler {
 	handler := &HttpHandler{
-		Schema:     schema,
-		Relay:      &relay.Handler{Schema: schema},
-		RdbManager: rdbmgr,
+		Schema:           schema,
+		Relay:            &relay.Handler{Schema: schema},
+		ContextProviders: providers,
 	}
 	return handler
 }
 
 // Handles http request processing.
 func (h *HttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(context.WithValue(r.Context(), ContextRdbKey, h.RdbManager))
+	for key, value := range h.ContextProviders {
+		r = r.WithContext(context.WithValue(r.Context(), key, value))
+	}
 	h.Relay.ServeHTTP(w, r)
 }
