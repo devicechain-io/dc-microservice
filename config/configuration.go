@@ -73,10 +73,10 @@ func NewDefaultInstanceConfiguration() *InstanceConfiguration {
 				Port:     6379,
 			},
 			Kafka: KafkaConfiguration{
-				Hostname:                      "dc-kafka-kafka-bootstrap",
+				Hostname:                      "dc-kafka-kafka-bootstrap.dc-system",
 				Port:                          9092,
-				DefaultTopicPartitions:        8,
-				DefaultTopicReplicationFactor: 3,
+				DefaultTopicPartitions:        4,
+				DefaultTopicReplicationFactor: 1,
 			},
 			Metrics: MetricsConfiguration{
 				Enabled:  true,
