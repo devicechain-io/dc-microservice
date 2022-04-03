@@ -31,14 +31,26 @@ const (
 
 // Common lifecycle concept for components
 type LifecycleComponent interface {
+	// Invokes lifecycle initialization.
+	Initialize(ctx context.Context) error
+
 	// Initialize component. Happens once on startup.
 	ExecuteInitialize(context.Context) error
+
+	// Invokes lifecycle startup.
+	Start(context.Context) error
 
 	// Start component. May happen on startup or after stop.
 	ExecuteStart(context.Context) error
 
+	// Invokes lifecycle shutdown.
+	Stop(context.Context) error
+
 	// Stop a started component.
 	ExecuteStop(context.Context) error
+
+	// Invokes lifecycle termination.
+	Terminate(context.Context) error
 
 	// Terminate component.
 	ExecuteTerminate(context.Context) error
