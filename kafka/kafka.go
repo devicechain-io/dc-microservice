@@ -130,11 +130,13 @@ func (kmgr *KafkaManager) Initialize(ctx context.Context) error {
 
 // Lifecycle callback that runs initialization logic.
 func (kmgr *KafkaManager) ExecuteInitialize(context.Context) error {
-	conn, err := kafka.Dial("tcp", kmgr.KafkaBrokersUrl())
+	url := kmgr.KafkaBrokersUrl()
+	conn, err := kafka.Dial("tcp", url)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
+	log.Info().Msg(fmt.Sprintf("Verified connectivity to kafka at '%s'", url))
 	return nil
 }
 
@@ -145,7 +147,12 @@ func (kmgr *KafkaManager) Start(ctx context.Context) error {
 
 // Lifecycle callback that runs startup logic.
 func (kmgr *KafkaManager) ExecuteStart(context.Context) error {
-	return kmgr.oncreate(kmgr)
+	err := kmgr.oncreate(kmgr)
+	if err != nil {
+		return err
+	}
+	log.Info().Msg("Kafka component creation completed successfully.")
+	return nil
 }
 
 // Stop component.
@@ -155,12 +162,14 @@ func (kmgr *KafkaManager) Stop(ctx context.Context) error {
 
 // Lifecycle callback that runs shutdown logic.
 func (kmgr *KafkaManager) ExecuteStop(context.Context) error {
+	log.Info().Msg("Shutting down kafka writers.")
 	for _, writer := range kmgr.writers {
 		err := writer.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("Error closing kafka writer.")
 		}
 	}
+	log.Info().Msg("Shutting down kafka readers.")
 	for _, reader := range kmgr.readers {
 		err := reader.Close()
 		if err != nil {

@@ -7,6 +7,7 @@ Proprietary and confidential.
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -126,6 +127,7 @@ func (ms *Microservice) Run() error {
 
 // Issue initialize and start commands to microservice
 func (ms *Microservice) InitializeAndStart() error {
+	startedat := time.Now()
 	err := ms.Initialize(context.Background())
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to initialize microservice")
@@ -136,6 +138,8 @@ func (ms *Microservice) InitializeAndStart() error {
 		log.Error().Err(err).Msg("Unable to start microservice")
 		return err
 	}
+	elapsed := time.Since(startedat)
+	log.Info().Msg(fmt.Sprintf("Microservice started in %s", elapsed.String()))
 	return nil
 }
 
@@ -201,11 +205,17 @@ func (ms *Microservice) ReloadMicroserviceConfiguration() error {
 		return fmt.Errorf("environment variable for functional area (%s) not set", ENV_MS_FUNCTIONAL_AREA)
 	}
 
-	bytes, err := os.ReadFile(fmt.Sprintf("/etc/dct-config/%s", fa))
+	// Read config from filesystem.
+	cfgbytes, err := os.ReadFile(fmt.Sprintf("/etc/dct-config/%s", fa))
 	if err != nil {
 		return err
 	}
-	ms.MicroserviceConfigurationRaw = bytes
+	ms.MicroserviceConfigurationRaw = cfgbytes
+
+	// Print configuration to log as json.
+	var fmted bytes.Buffer
+	json.Indent(&fmted, ms.MicroserviceConfigurationRaw, "", "  ")
+	log.Info().Msg(fmt.Sprintf("Using configuration:\n\n%s\n", fmted.String()))
 	return nil
 }
 
