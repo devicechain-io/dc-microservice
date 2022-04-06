@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/devicechain-io/dc-microservice/core"
 	"github.com/rs/zerolog/log"
@@ -53,6 +54,12 @@ func (kmgr *KafkaManager) KafkaBrokersUrl() string {
 // Build topic name specific to instance/tenant.
 func (kmgr *KafkaManager) NewScopedTopic(topic string) string {
 	return fmt.Sprintf("%s.%s.%s", kmgr.Microservice.InstanceId, kmgr.Microservice.TenantId, topic)
+}
+
+// Build consumer group name specific to instant/tenant/microservice.
+func (kmgr *KafkaManager) NewScopedConsumerGroup(topic string) string {
+	return fmt.Sprintf("%s.%s.group-%s-%s", kmgr.Microservice.InstanceId, kmgr.Microservice.TenantId,
+		kmgr.Microservice.FunctionalArea, topic)
 }
 
 // Create a topic if it doesn't already exist.
@@ -101,21 +108,23 @@ func (kmgr *KafkaManager) NewReader(groupId string, topic string) (*kafka.Reader
 		MaxBytes: 10e6,
 	})
 
-	log.Info().Msg(fmt.Sprintf("Added new kafka reader for topic '%s'", topic))
+	log.Info().Msg(fmt.Sprintf("Added new kafka reader on group '%s' for topic '%s'", groupId, topic))
 	kmgr.readers = append(kmgr.readers, reader)
 	return reader, nil
 }
 
 // Create a new kafka writer.
-func (kmgr *KafkaManager) NewWriter(topic string) (*kafka.Writer, error) {
+func (kmgr *KafkaManager) NewWriter(topic string, batchSize int, batchTimeout time.Duration) (*kafka.Writer, error) {
 	err := kmgr.ValidateTopic(topic)
 	if err != nil {
 		return nil, err
 	}
 	writer := &kafka.Writer{
-		Addr:     kafka.TCP(kmgr.KafkaBrokersUrl()),
-		Topic:    topic,
-		Balancer: &kafka.LeastBytes{},
+		Addr:         kafka.TCP(kmgr.KafkaBrokersUrl()),
+		Topic:        topic,
+		Balancer:     &kafka.LeastBytes{},
+		BatchSize:    batchSize,
+		BatchTimeout: batchTimeout,
 	}
 
 	log.Info().Msg(fmt.Sprintf("Added new kafka writer for topic '%s'", topic))
