@@ -13,16 +13,23 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/devicechain-io/dc-microservice/config"
 	"github.com/olekukonko/tablewriter"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/bsm/redislock"
 	"github.com/fatih/color"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+)
+
+const (
+	METRICS_NAMESPACE = "devicechain"
 )
 
 // Primary microservice implementation
@@ -217,6 +224,46 @@ func (ms *Microservice) ReloadMicroserviceConfiguration() error {
 	json.Indent(&fmted, ms.MicroserviceConfigurationRaw, "", "  ")
 	log.Info().Msg(fmt.Sprintf("Using configuration:\n\n%s\n", fmted.String()))
 	return nil
+}
+
+// Create a new counter with the namespace and subsystem auto-filled based on microservice
+func (ms *Microservice) NewCounter(name string, help string, labels []string) prometheus.Counter {
+	return promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: METRICS_NAMESPACE,
+		Subsystem: strings.ReplaceAll(ms.FunctionalArea, "-", ""),
+		Name:      name,
+		Help:      help,
+	})
+}
+
+// Create a new counter vector with the namespace and subsystem auto-filled based on microservice
+func (ms *Microservice) NewCounterVec(name string, help string, labels []string) *prometheus.CounterVec {
+	return promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: METRICS_NAMESPACE,
+		Subsystem: strings.ReplaceAll(ms.FunctionalArea, "-", ""),
+		Name:      name,
+		Help:      help,
+	}, labels)
+}
+
+// Create a new gauge with the namespace and subsystem auto-filled based on microservice
+func (ms *Microservice) NewGauge(name string, help string, labels []string) prometheus.Gauge {
+	return promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: METRICS_NAMESPACE,
+		Subsystem: strings.ReplaceAll(ms.FunctionalArea, "-", ""),
+		Name:      name,
+		Help:      help,
+	})
+}
+
+// Create a new gauge vector with the namespace and subsystem auto-filled based on microservice
+func (ms *Microservice) NewGaugeVec(name string, help string, labels []string) *prometheus.GaugeVec {
+	return promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: METRICS_NAMESPACE,
+		Subsystem: strings.ReplaceAll(ms.FunctionalArea, "-", ""),
+		Name:      name,
+		Help:      help,
+	}, labels)
 }
 
 // Initialize microservice

@@ -14,6 +14,7 @@ import (
 	"github.com/devicechain-io/dc-microservice/core"
 	"github.com/friendsofgo/graphiql"
 	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 )
 
@@ -72,6 +73,9 @@ func (gql *GraphQLManager) ExecuteStart(context.Context) error {
 	// Add handler for queries
 	http.Handle("/graphql", NewHttpHandler(&gql.Schema, gql.ContextProviders))
 	http.Handle("/graphiql", graphiqlHandler)
+
+	// Add handler for metrics
+	http.Handle("/metrics", promhttp.Handler())
 
 	// Start server in a background thread in order to continue server startup.
 	go func() {
