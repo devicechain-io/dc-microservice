@@ -6,7 +6,12 @@ Proprietary and confidential.
 
 package rdb
 
-import "database/sql"
+import (
+	"database/sql"
+	"encoding/json"
+
+	"gorm.io/datatypes"
+)
 
 // Entity that is referenced by a unique token which may change over time.
 type TokenReference struct {
@@ -26,6 +31,25 @@ type BrandedEntity struct {
 	BackgroundColor sql.NullString `gorm:"size:32"`
 	ForegroundColor sql.NullString `gorm:"size:32"`
 	BorderColor     sql.NullString `gorm:"size:32"`
+}
+
+// Entity that has extra attached metadata.
+type MetadataEntity struct {
+	Metadata *datatypes.JSON
+}
+
+// Create JSON value from string input.
+func MetadataStrOf(value *string) *datatypes.JSON {
+	if value != nil {
+		result := json.RawMessage{}
+		err := result.UnmarshalJSON([]byte(*value))
+		if err != nil {
+			return nil
+		}
+		conv := datatypes.JSON(result)
+		return &conv
+	}
+	return nil
 }
 
 // Information for paged result sets

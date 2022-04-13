@@ -10,6 +10,8 @@ import (
 	"database/sql"
 	_ "embed"
 	"time"
+
+	"gorm.io/datatypes"
 )
 
 var (
@@ -32,4 +34,13 @@ func FormatTime(input time.Time) *string {
 	}
 	val := input.Format(time.RFC3339)
 	return &val
+}
+
+// Converts a sql nullstring to a string pointer.
+func MetadataStr(value *datatypes.JSON) *string {
+	if value == nil {
+		return nil
+	}
+	str := value.String()
+	return &str
 }

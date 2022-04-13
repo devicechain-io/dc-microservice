@@ -26,6 +26,11 @@ interface BrandedEntity {
     borderColor: String
 }
 
+# Entity that provides metadata.
+interface MetadataEntity {
+    metadata: String
+}
+
 # Information for paged result sets.
 interface Pagination {
     pageNumber: Int
