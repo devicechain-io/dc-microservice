@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // Entity that is referenced by a unique token which may change over time.
@@ -52,12 +53,6 @@ func MetadataStrOf(value *string) *datatypes.JSON {
 	return nil
 }
 
-// Information for paged result sets
-type Pagination struct {
-	PageNumber int32
-	PageSize   int32
-}
-
 // Creates a sql.NullString from a string constant.
 func NullStrOf(value *string) sql.NullString {
 	if value != nil {
@@ -69,5 +64,19 @@ func NullStrOf(value *string) sql.NullString {
 		return sql.NullString{
 			Valid: false,
 		}
+	}
+}
+
+// Information for paged result sets
+type Pagination struct {
+	PageNumber int32
+	PageSize   int32
+}
+
+// Scope function used to implement pagination.
+func Paginate(pag Pagination) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		offset := (pag.PageNumber - 1) * pag.PageSize
+		return db.Offset(int(offset)).Limit(int(pag.PageSize))
 	}
 }
