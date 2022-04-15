@@ -21,6 +21,7 @@ type RdbManager struct {
 	Microservice *core.Microservice
 	Database     *gorm.DB
 	Migrations   []*gormigrate.Migration
+	ShowSql      bool
 
 	lifecycle core.LifecycleManager
 }
@@ -31,6 +32,7 @@ func NewRdbManager(ms *core.Microservice, callbacks core.LifecycleCallbacks,
 	rdb := &RdbManager{
 		Microservice: ms,
 		Migrations:   migrations,
+		ShowSql:      true,
 	}
 	// Create lifecycle manager.
 	rdbname := fmt.Sprintf("%s-%s", ms.FunctionalArea, "rdb")
@@ -46,7 +48,7 @@ func (rdb *RdbManager) ListOf(mdl interface{}, filters func(db *gorm.DB) *gorm.D
 	}
 
 	count := int64(0)
-	result := rdb.Database.Debug().Model(mdl)
+	result := rdb.Database.Model(mdl)
 	if filters != nil {
 		result = filters(result)
 	}

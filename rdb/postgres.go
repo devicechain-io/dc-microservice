@@ -166,6 +166,9 @@ func (rdb *RdbManager) initializePostgres() error {
 	}
 
 	rdb.Database = db
+	if rdb.ShowSql {
+		rdb.Database = rdb.Database.Debug()
+	}
 
 	sqldb, err := rdb.Database.DB()
 	if err != nil {
