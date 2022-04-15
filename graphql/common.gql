@@ -36,3 +36,10 @@ interface Pagination {
     pageNumber: Int
     pageSize: Int
 }
+
+# Pagination info for search results.
+interface SearchResultsPagination {
+	pageStart: Int
+	pageEnd: Int
+	totalRecords: Int
+}

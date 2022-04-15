@@ -38,6 +38,35 @@ func NewRdbManager(ms *core.Microservice, callbacks core.LifecycleCallbacks,
 	return rdb
 }
 
+// Query for a list of models based on filter and pagination criteria.
+func (rdb *RdbManager) ListOf(mdl interface{}, filters func(db *gorm.DB) *gorm.DB, pag Pagination) (*gorm.DB, SearchResultsPagination) {
+	// Sanity check page number.
+	if pag.PageNumber < 1 {
+		pag.PageNumber = 1
+	}
+
+	count := int64(0)
+	result := rdb.Database.Debug().Model(mdl)
+	if filters != nil {
+		result = filters(result)
+	}
+	result = result.Count(&count)
+	result.Scopes(Paginate(pag))
+
+	total := int32(count)
+	last := pag.PageNumber * pag.PageSize
+	if total < last {
+		last = total
+	}
+
+	srpag := SearchResultsPagination{
+		PageStart:    (pag.PageNumber-1)*pag.PageSize + 1,
+		PageEnd:      last,
+		TotalRecords: total,
+	}
+	return result, srpag
+}
+
 // Initialize component.
 func (rdb *RdbManager) Initialize(ctx context.Context) error {
 	return rdb.lifecycle.Initialize(ctx)
