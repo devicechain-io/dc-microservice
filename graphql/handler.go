@@ -19,6 +19,7 @@ type ContextKey string
 
 const (
 	ContextRdbKey ContextKey = "rdb"
+	ContextApiKey ContextKey = "api"
 )
 
 // Adds extra context to http request.
