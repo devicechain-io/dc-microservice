@@ -76,6 +76,10 @@ type Pagination struct {
 // Scope function used to implement pagination.
 func Paginate(pag Pagination) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
+		// Page size of less than 1 means return all.
+		if pag.PageSize < 1 {
+			return db
+		}
 		offset := (pag.PageNumber - 1) * pag.PageSize
 		return db.Offset(int(offset)).Limit(int(pag.PageSize))
 	}

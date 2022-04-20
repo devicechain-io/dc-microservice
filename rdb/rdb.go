@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/devicechain-io/dc-microservice/config"
 	"github.com/devicechain-io/dc-microservice/core"
 	gormigrate "github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
@@ -30,12 +31,12 @@ type RdbManager struct {
 
 // Create a new rdb manager.
 func NewRdbManager(ms *core.Microservice, callbacks core.LifecycleCallbacks,
-	migrations []*gormigrate.Migration) *RdbManager {
+	migrations []*gormigrate.Migration, cfg config.MicroserviceRdbConfiguration) *RdbManager {
 	rdb := &RdbManager{
 		Microservice: ms,
 		Migrations:   migrations,
 		RedisCaches:  make(map[string]*core.RedisCache),
-		ShowSql:      true,
+		ShowSql:      cfg.SqlDebug,
 	}
 	// Create lifecycle manager.
 	rdbname := fmt.Sprintf("%s-%s", ms.FunctionalArea, "rdb")
@@ -50,15 +51,31 @@ func (rdb *RdbManager) ListOf(mdl interface{}, filters func(db *gorm.DB) *gorm.D
 		pag.PageNumber = 1
 	}
 
+	// Execute count query.
 	count := int64(0)
 	result := rdb.Database.Model(mdl)
 	if filters != nil {
 		result = filters(result)
 	}
-	result = result.Count(&count)
+	_ = result.Count(&count)
+	total := int32(count)
+
+	// Execute data query.
+	result = rdb.Database.Model(mdl)
+	if filters != nil {
+		result = filters(result)
+	}
 	result.Scopes(Paginate(pag))
 
-	total := int32(count)
+	// Short-circuit for returning all.
+	if pag.PageSize < 1 {
+		return result, SearchResultsPagination{
+			PageStart:    1,
+			PageEnd:      total,
+			TotalRecords: total,
+		}
+	}
+
 	last := pag.PageNumber * pag.PageSize
 	if total < last {
 		last = total
