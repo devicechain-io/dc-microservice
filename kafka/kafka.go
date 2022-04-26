@@ -18,6 +18,16 @@ import (
 	kafka "github.com/segmentio/kafka-go"
 )
 
+// Simplified reader interface for unit testing.
+type KafkaReader interface {
+	ReadMessage(ctx context.Context) (kafka.Message, error)
+}
+
+// Simplified writer interface for unit testing.
+type KafkaWriter interface {
+	WriteMessages(ctx context.Context, msgs ...kafka.Message) error
+}
+
 // Manages lifecycle of kafka interactions.
 type KafkaManager struct {
 	Microservice *core.Microservice
@@ -94,7 +104,7 @@ func (kmgr *KafkaManager) ValidateTopic(topic string) error {
 }
 
 // Create a new kafka reader.
-func (kmgr *KafkaManager) NewReader(groupId string, topic string) (*kafka.Reader, error) {
+func (kmgr *KafkaManager) NewReader(groupId string, topic string) (KafkaReader, error) {
 	err := kmgr.ValidateTopic(topic)
 	if err != nil {
 		return nil, err
@@ -114,7 +124,7 @@ func (kmgr *KafkaManager) NewReader(groupId string, topic string) (*kafka.Reader
 }
 
 // Create a new kafka writer.
-func (kmgr *KafkaManager) NewWriter(topic string, batchSize int, batchTimeout time.Duration) (*kafka.Writer, error) {
+func (kmgr *KafkaManager) NewWriter(topic string, batchSize int, batchTimeout time.Duration) (KafkaWriter, error) {
 	err := kmgr.ValidateTopic(topic)
 	if err != nil {
 		return nil, err
