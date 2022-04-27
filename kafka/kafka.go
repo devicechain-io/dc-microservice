@@ -114,7 +114,7 @@ func (kmgr *KafkaManager) NewReader(groupId string, topic string) (KafkaReader, 
 		Brokers:  []string{kmgr.KafkaBrokersUrl()},
 		GroupID:  groupId,
 		Topic:    topic,
-		MinBytes: 10e3,
+		MinBytes: 1,
 		MaxBytes: 10e6,
 	})
 
@@ -124,7 +124,7 @@ func (kmgr *KafkaManager) NewReader(groupId string, topic string) (KafkaReader, 
 }
 
 // Create a new kafka writer.
-func (kmgr *KafkaManager) NewWriter(topic string, batchSize int, batchTimeout time.Duration) (KafkaWriter, error) {
+func (kmgr *KafkaManager) NewWriter(topic string) (KafkaWriter, error) {
 	err := kmgr.ValidateTopic(topic)
 	if err != nil {
 		return nil, err
@@ -133,8 +133,9 @@ func (kmgr *KafkaManager) NewWriter(topic string, batchSize int, batchTimeout ti
 		Addr:         kafka.TCP(kmgr.KafkaBrokersUrl()),
 		Topic:        topic,
 		Balancer:     &kafka.LeastBytes{},
-		BatchSize:    batchSize,
-		BatchTimeout: batchTimeout,
+		BatchSize:    50,
+		BatchTimeout: time.Millisecond * 100,
+		Async:        true,
 	}
 
 	log.Info().Msg(fmt.Sprintf("Added new kafka writer for topic '%s'", topic))
