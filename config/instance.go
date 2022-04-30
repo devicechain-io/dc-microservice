@@ -40,22 +40,16 @@ type InfrastructureConfiguration struct {
 	Keycloak KeycloakConfiguration
 }
 
-// Relational database configuration
-type RdbConfiguration struct {
-	Type          string
-	Configuration map[string]interface{}
-}
-
-// Time series database configuration
-type TsdbConfiguration struct {
+// Generic datastore configuration
+type DatastoreConfiguration struct {
 	Type          string
 	Configuration map[string]interface{}
 }
 
 // Configuration of persistence stores
 type PersistenceConfiguration struct {
-	Rdb  RdbConfiguration
-	Tsdb TsdbConfiguration
+	Rdb  DatastoreConfiguration
+	Tsdb DatastoreConfiguration
 }
 
 // Instance-level configuration settings
@@ -88,7 +82,7 @@ func NewDefaultInstanceConfiguration() *InstanceConfiguration {
 			},
 		},
 		Persistence: PersistenceConfiguration{
-			Rdb: RdbConfiguration{
+			Rdb: DatastoreConfiguration{
 				Type: "postgres95",
 				Configuration: map[string]interface{}{
 					"hostname":       "dc-postgresql.dc-system",
@@ -98,12 +92,14 @@ func NewDefaultInstanceConfiguration() *InstanceConfiguration {
 					"password":       "devicechain",
 				},
 			},
-			Tsdb: TsdbConfiguration{
-				Type: "influxdb",
+			Tsdb: DatastoreConfiguration{
+				Type: "timescaledb",
 				Configuration: map[string]interface{}{
-					"hostname":     "dc-influxdb.dc-system",
-					"port":         8086,
-					"databaseName": "tenant_${tenant.id}",
+					"hostname":       "dc-timescaledb-single.dc-system",
+					"port":           5432,
+					"maxConnections": 5,
+					"username":       "postgres",
+					"password":       "devicechain",
 				},
 			},
 		},

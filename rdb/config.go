@@ -21,7 +21,7 @@ type PostgresConfig struct {
 }
 
 // Use json marshaling to convert between generic config and strongly-typed.
-func convertToPostgresConfig(rdb config.RdbConfiguration) (*PostgresConfig, error) {
+func convertToPostgresConfig(rdb config.DatastoreConfiguration) (*PostgresConfig, error) {
 	bytes, err := json.Marshal(rdb.Configuration)
 	if err != nil {
 		return nil, err

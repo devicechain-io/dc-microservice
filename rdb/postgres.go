@@ -20,7 +20,7 @@ import (
 
 // Compute non-database connection URL for querying/creating database.
 func (rdb *RdbManager) computePostgresRootUrl(pgconfig *PostgresConfig) string {
-	config := rdb.Microservice.InstanceConfiguration.Persistence.Rdb
+	config := rdb.InstanceConfig
 	hostname := fmt.Sprintf("%v", config.Configuration["hostname"])
 	port := fmt.Sprintf("%v", config.Configuration["port"])
 	username := fmt.Sprintf("%v", config.Configuration["username"])
@@ -30,8 +30,8 @@ func (rdb *RdbManager) computePostgresRootUrl(pgconfig *PostgresConfig) string {
 
 // Assure that database is created before connecting to it.
 func (rdb *RdbManager) assurePostgresDatabase(pgconfig *PostgresConfig) error {
-	log.Info().Str("database", rdb.Microservice.TenantId).Msg("Verifying that tenant database exists.")
 	url := rdb.computePostgresRootUrl(pgconfig)
+	log.Info().Str("database", rdb.Microservice.TenantId).Str("url", url).Msg("Verifying that tenant database exists.")
 	conn, err := pgx.Connect(context.Background(), url)
 	if err != nil {
 		return err
@@ -141,7 +141,7 @@ func (rdb *RdbManager) bootstrapPostgres(pgconf *PostgresConfig) error {
 
 // Initialize a postgres database.
 func (rdb *RdbManager) initializePostgres() error {
-	pgconf, err := convertToPostgresConfig(rdb.Microservice.InstanceConfiguration.Persistence.Rdb)
+	pgconf, err := convertToPostgresConfig(rdb.InstanceConfig)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func (rdb *RdbManager) initializePostgres() error {
 	}
 
 	rdb.Database = db
-	if rdb.ShowSql {
+	if rdb.MicroserviceConfig.SqlDebug {
 		rdb.Database = rdb.Database.Debug()
 	}
 

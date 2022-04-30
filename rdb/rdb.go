@@ -20,23 +20,26 @@ import (
 
 // Manages lifecycle of relational database interactions.
 type RdbManager struct {
-	Microservice *core.Microservice
-	Database     *gorm.DB
-	Migrations   []*gormigrate.Migration
-	RedisCaches  map[string]*core.RedisCache
-	ShowSql      bool
+	Microservice       *core.Microservice
+	Database           *gorm.DB
+	Migrations         []*gormigrate.Migration
+	RedisCaches        map[string]*core.RedisCache
+	InstanceConfig     config.DatastoreConfiguration
+	MicroserviceConfig config.MicroserviceDatastoreConfiguration
 
 	lifecycle core.LifecycleManager
 }
 
 // Create a new rdb manager.
 func NewRdbManager(ms *core.Microservice, callbacks core.LifecycleCallbacks,
-	migrations []*gormigrate.Migration, cfg config.MicroserviceRdbConfiguration) *RdbManager {
+	migrations []*gormigrate.Migration, icfg config.DatastoreConfiguration,
+	cfg config.MicroserviceDatastoreConfiguration) *RdbManager {
 	rdb := &RdbManager{
-		Microservice: ms,
-		Migrations:   migrations,
-		RedisCaches:  make(map[string]*core.RedisCache),
-		ShowSql:      cfg.SqlDebug,
+		Microservice:       ms,
+		Migrations:         migrations,
+		RedisCaches:        make(map[string]*core.RedisCache),
+		InstanceConfig:     icfg,
+		MicroserviceConfig: cfg,
 	}
 	// Create lifecycle manager.
 	rdbname := fmt.Sprintf("%s-%s", ms.FunctionalArea, "rdb")
@@ -109,9 +112,17 @@ func (rdb *RdbManager) Initialize(ctx context.Context) error {
 // Lifecycle callback that runs initialization logic.
 func (rdb *RdbManager) ExecuteInitialize(context.Context) error {
 	// Make sure database exists before interacting with it.
-	dbtype := rdb.Microservice.InstanceConfiguration.Persistence.Rdb.Type
+	dbtype := rdb.InstanceConfig.Type
 	if strings.HasPrefix(dbtype, "postgres") {
-		rdb.initializePostgres()
+		err := rdb.initializePostgres()
+		if err != nil {
+			return err
+		}
+	} else if strings.HasPrefix(dbtype, "timescaledb") {
+		err := rdb.initializePostgres()
+		if err != nil {
+			return err
+		}
 	} else {
 		return fmt.Errorf("relational database %s not currently supported", dbtype)
 	}

@@ -6,7 +6,7 @@ Proprietary and confidential.
 
 package config
 
-// Per-microservice persistence configuration.
-type MicroserviceRdbConfiguration struct {
+// Per-microservice datastore configuration.
+type MicroserviceDatastoreConfiguration struct {
 	SqlDebug bool
 }
