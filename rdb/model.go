@@ -67,6 +67,34 @@ func NullStrOf(value *string) sql.NullString {
 	}
 }
 
+// Creates a sql.NullInt64 from a string constant.
+func NullInt64Of(value *int64) sql.NullInt64 {
+	if value != nil {
+		return sql.NullInt64{
+			Int64: *value,
+			Valid: true,
+		}
+	} else {
+		return sql.NullInt64{
+			Valid: false,
+		}
+	}
+}
+
+// Creates a sql.NullFloat64 from a string constant.
+func NullFloat64Of(value *float64) sql.NullFloat64 {
+	if value != nil {
+		return sql.NullFloat64{
+			Float64: *value,
+			Valid:   true,
+		}
+	} else {
+		return sql.NullFloat64{
+			Valid: false,
+		}
+	}
+}
+
 // Information for paged result sets
 type Pagination struct {
 	PageNumber int32
