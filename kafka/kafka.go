@@ -21,11 +21,13 @@ import (
 // Simplified reader interface for unit testing.
 type KafkaReader interface {
 	ReadMessage(ctx context.Context) (kafka.Message, error)
+	HandleResponse(err error)
 }
 
 // Simplified writer interface for unit testing.
 type KafkaWriter interface {
 	WriteMessages(ctx context.Context, msgs ...kafka.Message) error
+	HandleResponse(err error)
 }
 
 // Manages lifecycle of kafka interactions.
@@ -33,8 +35,8 @@ type KafkaManager struct {
 	Microservice *core.Microservice
 
 	oncreate  func(*KafkaManager) error
-	readers   []*kafka.Reader
-	writers   []*kafka.Writer
+	readers   []KafkaReader
+	writers   []KafkaWriter
 	lifecycle core.LifecycleManager
 }
 
@@ -45,8 +47,8 @@ func NewKafkaManager(ms *core.Microservice, callbacks core.LifecycleCallbacks,
 		Microservice: ms,
 	}
 
-	kmgr.readers = make([]*kafka.Reader, 0)
-	kmgr.writers = make([]*kafka.Writer, 0)
+	kmgr.readers = make([]KafkaReader, 0)
+	kmgr.writers = make([]KafkaWriter, 0)
 	kmgr.oncreate = oncreate
 
 	// Create lifecycle manager.
@@ -103,6 +105,20 @@ func (kmgr *KafkaManager) ValidateTopic(topic string) error {
 	return controllerConn.CreateTopics(topicConfigs...)
 }
 
+// Wraps kafka reader to add new functionality.
+type DeviceChainKafkaReader struct {
+	kafka.Reader
+}
+
+// Handle response from read operation.
+func (dckr *DeviceChainKafkaReader) HandleResponse(err error) {
+	if err != nil {
+		log.Error().Err(err).Str("topic", dckr.Config().Topic).Msg("kafka read operation failed")
+	} else if log.Debug().Enabled() {
+		log.Debug().Str("topic", dckr.Config().Topic).Msg("kafka read operation successful")
+	}
+}
+
 // Create a new kafka reader.
 func (kmgr *KafkaManager) NewReader(groupId string, topic string) (KafkaReader, error) {
 	err := kmgr.ValidateTopic(topic)
@@ -110,17 +126,34 @@ func (kmgr *KafkaManager) NewReader(groupId string, topic string) (KafkaReader, 
 		return nil, err
 	}
 
-	reader := kafka.NewReader(kafka.ReaderConfig{
+	kreader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  []string{kmgr.KafkaBrokersUrl()},
 		GroupID:  groupId,
 		Topic:    topic,
 		MinBytes: 1,
 		MaxBytes: 10e6,
 	})
+	reader := &DeviceChainKafkaReader{
+		Reader: *kreader,
+	}
 
 	log.Info().Msg(fmt.Sprintf("Added new kafka reader on group '%s' for topic '%s'", groupId, topic))
 	kmgr.readers = append(kmgr.readers, reader)
 	return reader, nil
+}
+
+// Wraps kafka writer to add new functionality.
+type DeviceChainKafkaWriter struct {
+	kafka.Writer
+}
+
+// Handle response from read operation.
+func (dckr *DeviceChainKafkaWriter) HandleResponse(err error) {
+	if err != nil {
+		log.Error().Err(err).Str("topic", dckr.Topic).Msg("kafka write operation failed")
+	} else if log.Debug().Enabled() {
+		log.Debug().Str("topic", dckr.Topic).Msg("kafka write operation successful")
+	}
 }
 
 // Create a new kafka writer.
@@ -129,13 +162,16 @@ func (kmgr *KafkaManager) NewWriter(topic string) (KafkaWriter, error) {
 	if err != nil {
 		return nil, err
 	}
-	writer := &kafka.Writer{
+	kwriter := kafka.Writer{
 		Addr:         kafka.TCP(kmgr.KafkaBrokersUrl()),
 		Topic:        topic,
 		Balancer:     &kafka.LeastBytes{},
 		BatchSize:    50,
 		BatchTimeout: time.Millisecond * 100,
 		Async:        true,
+	}
+	writer := &DeviceChainKafkaWriter{
+		Writer: kwriter,
 	}
 
 	log.Info().Msg(fmt.Sprintf("Added new kafka writer for topic '%s'", topic))
@@ -184,16 +220,20 @@ func (kmgr *KafkaManager) Stop(ctx context.Context) error {
 func (kmgr *KafkaManager) ExecuteStop(context.Context) error {
 	log.Info().Msg("Shutting down kafka writers.")
 	for _, writer := range kmgr.writers {
-		err := writer.Close()
-		if err != nil {
-			log.Error().Err(err).Msg("Error closing kafka writer.")
+		if dckw, ok := writer.(*DeviceChainKafkaWriter); ok {
+			err := dckw.Close()
+			if err != nil {
+				log.Error().Err(err).Msg("Error closing kafka writer.")
+			}
 		}
 	}
 	log.Info().Msg("Shutting down kafka readers.")
 	for _, reader := range kmgr.readers {
-		err := reader.Close()
-		if err != nil {
-			log.Error().Err(err).Msg("Error closing kafka reader.")
+		if dckr, ok := reader.(*DeviceChainKafkaReader); ok {
+			err := dckr.Close()
+			if err != nil {
+				log.Error().Err(err).Msg("Error closing kafka reader.")
+			}
 		}
 	}
 	return nil
