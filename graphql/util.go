@@ -14,11 +14,6 @@ import (
 	"gorm.io/datatypes"
 )
 
-var (
-	//go:embed common.gql
-	CommonTypes string
-)
-
 // Converts a sql nullstring to a string pointer.
 func NullStr(value sql.NullString) *string {
 	if value.Valid {
