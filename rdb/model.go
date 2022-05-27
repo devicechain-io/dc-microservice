@@ -9,6 +9,7 @@ package rdb
 import (
 	"database/sql"
 	"encoding/json"
+	"strings"
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -56,14 +57,16 @@ func MetadataStrOf(value *string) *datatypes.JSON {
 // Creates a sql.NullString from a string constant.
 func NullStrOf(value *string) sql.NullString {
 	if value != nil {
-		return sql.NullString{
-			String: *value,
-			Valid:  true,
+		trimmed := strings.TrimSpace(*value)
+		if len(trimmed) > 0 {
+			return sql.NullString{
+				String: trimmed,
+				Valid:  true,
+			}
 		}
-	} else {
-		return sql.NullString{
-			Valid: false,
-		}
+	}
+	return sql.NullString{
+		Valid: false,
 	}
 }
 
