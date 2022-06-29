@@ -22,6 +22,14 @@ func NullStr(value sql.NullString) *string {
 	return nil
 }
 
+// Converts a sql nullbool to a bool pointer.
+func NullBool(value sql.NullBool) *bool {
+	if value.Valid {
+		return &value.Bool
+	}
+	return nil
+}
+
 // Format time as a string.
 func FormatTime(input time.Time) *string {
 	if input.IsZero() {
